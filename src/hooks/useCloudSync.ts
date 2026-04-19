@@ -122,6 +122,58 @@ function hydratePins(rows: Record<string, unknown>[]): Pin[] {
 }
 
 // ---------------------------------------------------------------------------
+// Ensure authenticated session — auto sign-in anonymously if needed
+// ---------------------------------------------------------------------------
+
+async function ensureSession(supabase: ReturnType<typeof createClient>) {
+  const { data: { session } } = await supabase.auth.getSession();
+
+  if (session?.user) {
+    return session.user;
+  }
+
+  // No session — sign in anonymously so we have a user_id for RLS
+  console.log('[useCloudSync] No session found, signing in anonymously...');
+  const { data, error } = await supabase.auth.signInAnonymously();
+
+  if (error) {
+    console.error('[useCloudSync] Anonymous sign-in failed:', error.message);
+    return null;
+  }
+
+  console.log('[useCloudSync] Anonymous session created:', data.user?.id);
+  return data.user;
+}
+
+// ---------------------------------------------------------------------------
+// Resolve or create the "Unorganized" collection for a user
+// ---------------------------------------------------------------------------
+
+async function resolveUnorganizedCollection(
+  supabase: ReturnType<typeof createClient>,
+  userId: string,
+): Promise<string> {
+  const { data: existing } = await supabase
+    .from('collections')
+    .select('id')
+    .eq('user_id', userId)
+    .eq('name', 'Unorganized')
+    .limit(1)
+    .single();
+
+  if (existing) return existing.id;
+
+  const { data: created } = await supabase
+    .from('collections')
+    .insert({ user_id: userId, name: 'Unorganized' })
+    .select('id')
+    .single();
+
+  if (!created) throw new Error('Failed to create Unorganized collection');
+  return created.id;
+}
+
+// ---------------------------------------------------------------------------
 // Core sync: push unsynced local data → Supabase, then hydrate store
 // ---------------------------------------------------------------------------
 
@@ -133,38 +185,12 @@ async function pushLocalDataAndHydrate(
   const { setCloudData } = useTravelPinStore.getState();
   const { localPins, localCollections } = getLocalData(pins, collections);
 
-  // Filter out the default "unorganized" placeholder — it's not a real
-  // user collection and shouldn't be inserted into Supabase.
   const collectionsToInsert = localCollections.filter(
     (c) => c.id !== 'unorganized',
   );
 
   let collectionIdMap = new Map<string, string>();
-  let unorganizedCloudId: string | undefined;
-
-  // Ensure the user has an "Unorganized" collection in the cloud
-  const { data: existingUnorganized } = await supabase
-    .from('collections')
-    .select('id')
-    .eq('user_id', userId)
-    .eq('name', 'Unorganized')
-    .limit(1)
-    .single();
-
-  if (existingUnorganized) {
-    unorganizedCloudId = existingUnorganized.id;
-  } else {
-    const { data: newUnorganized } = await supabase
-      .from('collections')
-      .insert({ user_id: userId, name: 'Unorganized' })
-      .select('id')
-      .single();
-    unorganizedCloudId = newUnorganized?.id;
-  }
-
-  if (!unorganizedCloudId) {
-    throw new Error('Failed to resolve unorganized collection');
-  }
+  const unorganizedCloudId = await resolveUnorganizedCollection(supabase, userId);
 
   // Batch insert local collections, build ID map
   if (collectionsToInsert.length > 0) {
@@ -180,22 +206,14 @@ async function pushLocalDataAndHydrate(
       .select('id');
 
     if (colErr) throw colErr;
-    collectionIdMap = buildCollectionIdMap(
-      collectionsToInsert,
-      cloudCols ?? [],
-    );
+    collectionIdMap = buildCollectionIdMap(collectionsToInsert, cloudCols ?? []);
   }
 
-  // Map the local "unorganized" id to the cloud unorganized id
   collectionIdMap.set('unorganized', unorganizedCloudId);
 
   // Remap pin collection IDs and batch insert
   if (localPins.length > 0) {
-    const remappedPins = remapPinCollectionIds(
-      localPins,
-      collectionIdMap,
-      unorganizedCloudId,
-    );
+    const remappedPins = remapPinCollectionIds(localPins, collectionIdMap, unorganizedCloudId);
 
     const pinRows = remappedPins.map((p) => ({
       user_id: userId,
@@ -212,23 +230,15 @@ async function pushLocalDataAndHydrate(
       address: p.address ?? null,
     }));
 
-    const { error: pinErr } = await supabase
-      .from('pins')
-      .insert(pinRows);
-
+    const { error: pinErr } = await supabase.from('pins').insert(pinRows);
     if (pinErr) throw pinErr;
   }
 
-  // Post-sync hydration — fetch all cloud data
+  // Post-sync hydration
   const { data: cloudCollections } = await supabase
-    .from('collections')
-    .select('*')
-    .eq('user_id', userId);
-
+    .from('collections').select('*').eq('user_id', userId);
   const { data: cloudPins } = await supabase
-    .from('pins')
-    .select('*')
-    .eq('user_id', userId);
+    .from('pins').select('*').eq('user_id', userId);
 
   setCloudData(
     hydratePins((cloudPins ?? []) as Record<string, unknown>[]),
@@ -239,90 +249,81 @@ async function pushLocalDataAndHydrate(
 }
 
 // ---------------------------------------------------------------------------
-// Main hook: 8.1, 8.5, 8.6, 8.7 + live sync for post-login pin creation
+// Main hook — ensures a session exists (anonymous or real), then syncs
 // ---------------------------------------------------------------------------
 
 export default function useCloudSync() {
   useEffect(() => {
     const supabase = createClient();
     const { setUser } = useTravelPinStore.getState();
+    let isMounted = true;
 
-    // 8.1 — Check for existing session on mount and sync any unsynced pins
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      if (session?.user) {
-        setUser(session.user);
+    // Boot: ensure we always have a session (anonymous if needed)
+    async function boot() {
+      const user = await ensureSession(supabase);
+      if (!user || !isMounted) return;
 
-        // Catch-up sync: push any local pins that were created while
-        // already authenticated (e.g. added after login, page refreshed)
-        try {
-          const { pins } = useTravelPinStore.getState();
-          const hasUnsyncedPins = pins.some((p) => p.user_id === undefined);
-          if (hasUnsyncedPins) {
-            await pushLocalDataAndHydrate(supabase, session.user.id);
+      setUser(user);
+
+      // Push any unsynced local pins
+      try {
+        const { pins } = useTravelPinStore.getState();
+        const hasUnsyncedPins = pins.some((p) => p.user_id === undefined);
+        if (hasUnsyncedPins) {
+          const { syncedPins } = await pushLocalDataAndHydrate(supabase, user.id);
+          if (syncedPins > 0) {
             showToast('Pins synced to the cloud ☁️', 'success');
           }
-        } catch (err) {
-          console.error('Catch-up sync failed:', err);
-          showToast('Sync failed — your local data is safe', 'error');
         }
+      } catch (err) {
+        console.error('[useCloudSync] Initial sync failed:', err);
+        showToast('Sync failed — your local data is safe', 'error');
       }
-    });
+    }
 
-    // 8.1 / 8.6 — Subscribe to auth state changes
+    boot();
+
+    // Listen for auth state changes (Google sign-in upgrades anonymous session)
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (event === 'SIGNED_IN' && session?.user) {
-        const user = session.user;
-        setUser(user);
+      if (!isMounted) return;
+
+      if ((event === 'SIGNED_IN' || event === 'USER_UPDATED') && session?.user) {
+        setUser(session.user);
 
         try {
-          const { syncedPins } = await pushLocalDataAndHydrate(supabase, user.id);
+          const { syncedPins } = await pushLocalDataAndHydrate(supabase, session.user.id);
           if (syncedPins > 0) {
             showToast('Your pins have been synced to the cloud ☁️', 'success');
           }
         } catch (err) {
-          console.error('Cloud sync failed:', err);
+          console.error('[useCloudSync] Auth change sync failed:', err);
           showToast('Sync failed — your local data is safe', 'error');
         }
       }
 
-      // 8.6 — Handle sign-out
       if (event === 'SIGNED_OUT') {
         setUser(null);
       }
     });
 
-    // --- Live sync: subscribe to store changes and push new pins in real-time ---
+    // Live sync: push new pins to Supabase as they're added
     const unsubscribeStore = useTravelPinStore.subscribe(
       async (state, prevState) => {
-        // Only act when a new pin was added (array grew)
         if (state.pins.length <= prevState.pins.length) return;
         if (!state.user) return;
 
-        // Find newly added pins that don't have a user_id yet
         const prevIds = new Set(prevState.pins.map((p) => p.id));
         const newPins = state.pins.filter(
           (p) => !prevIds.has(p.id) && p.user_id === undefined,
         );
-
         if (newPins.length === 0) return;
 
         try {
-          // Resolve the user's unorganized collection ID in the cloud
-          const { data: unorgRow } = await supabase
-            .from('collections')
-            .select('id')
-            .eq('user_id', state.user.id)
-            .eq('name', 'Unorganized')
-            .limit(1)
-            .single();
-
-          const unorganizedCloudId = unorgRow?.id;
-          if (!unorganizedCloudId) {
-            console.error('[liveSync] Could not resolve unorganized collection');
-            return;
-          }
+          const unorganizedCloudId = await resolveUnorganizedCollection(
+            supabase, state.user.id,
+          );
 
           const pinRows = newPins.map((p) => ({
             user_id: state.user!.id,
@@ -350,18 +351,13 @@ export default function useCloudSync() {
             return;
           }
 
-          // Stamp the local pins with user_id + cloud IDs so they're
-          // no longer detected as "unsynced"
           if (insertedPins && insertedPins.length > 0) {
             const hydratedNew = hydratePins(insertedPins as Record<string, unknown>[]);
             const { pins: currentPins } = useTravelPinStore.getState();
-
-            // Replace the local (no user_id) versions with the cloud versions
             const newPinIds = new Set(newPins.map((p) => p.id));
             const updatedPins = currentPins
               .filter((p) => !newPinIds.has(p.id))
               .concat(hydratedNew);
-
             useTravelPinStore.setState({ pins: updatedPins });
           }
         } catch (err) {
@@ -370,8 +366,8 @@ export default function useCloudSync() {
       },
     );
 
-    // Cleanup
     return () => {
+      isMounted = false;
       subscription.unsubscribe();
       unsubscribeStore();
     };

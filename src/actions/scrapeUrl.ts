@@ -294,9 +294,14 @@ export async function extractContextualHints(page: Page): Promise<string[]> {
     }
 
     // Place-like hashtags from all text (e.g., #BaliIndonesia → "Bali Indonesia")
+    // Filter out hex color codes (#FFF, #FFFFFF, etc.) by requiring at least one lowercase letter
     const hashtagPattern = /#([A-Za-z]{3,})/g;
     while ((match = hashtagPattern.exec(allText)) !== null) {
       if (match[1]) {
+        // Skip if it looks like a hex color (all uppercase A-F chars, or valid hex)
+        if (/^[A-Fa-f]+$/.test(match[1])) continue;
+        // Skip if no lowercase letters (likely an abbreviation or hex code)
+        if (!/[a-z]/.test(match[1])) continue;
         const expanded = match[1].replace(/([a-z])([A-Z])/g, '$1 $2');
         if (!NOISE_WORDS.has(expanded.toLowerCase())) {
           hints.add(expanded);

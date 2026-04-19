@@ -113,26 +113,21 @@ export default function PlaceSheet({ pin, onDismiss }: PlaceSheetProps) {
                 <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-white to-transparent" />
               </div>
 
-              {/* Content — strict hierarchy: Name → Location → Collection → Badges → Description */}
+              {/* Content — strict hierarchy: Brand → Context → Badges → Vibe */}
               <div className="px-[24px] pt-[20px] pb-[40px] flex flex-col">
-                {/* 1. Name */}
+                {/* 1. The Brand (Title) */}
                 <h2
-                  className="text-[26px] leading-[30px] font-extrabold tracking-[-0.8px] text-[#111111] text-balance"
+                  className="text-[26px] leading-[30px] font-extrabold tracking-[-0.8px] text-[#111111]"
                   style={{ margin: 0 }}
                 >
                   {pin.title}
                 </h2>
 
-                {/* 2. Location — tappable, opens Google Maps */}
+                {/* 2. The Context (Location) */}
                 {pin.address && (
-                  <a
-                    href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(pin.address)}&query_place_id=${pin.placeId ?? ''}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-[14px] leading-[18px] text-[#71717A] tracking-[-0.1px] mt-[6px] underline decoration-[#D4D4D8] underline-offset-2 hover:text-[#3F3F46] transition-colors"
-                  >
+                  <p className="text-[14px] leading-[18px] font-medium text-[#71717A] mt-[4px]">
                     {pin.address}
-                  </a>
+                  </p>
                 )}
 
                 {/* 3. Collection picker */}
@@ -166,9 +161,9 @@ export default function PlaceSheet({ pin, onDismiss }: PlaceSheetProps) {
                   )}
                 </div>
 
-                {/* 4. Badges — type + rating pills */}
+                {/* 4. The Badges — type + rating pills */}
                 {(pin.primaryType || pin.rating != null) && (
-                  <div className="flex flex-wrap items-center gap-[8px] mt-[14px]">
+                  <div className="flex flex-wrap items-center gap-[8px] mt-[16px]">
                     {pin.primaryType && (
                       <span className="inline-flex items-center px-[10px] py-[5px] bg-[#F4F4F5] text-[#3F3F46] text-[11px] font-bold uppercase tracking-[0.6px] rounded-full">
                         {pin.primaryType.replace(/_/g, " ")}
@@ -185,13 +180,14 @@ export default function PlaceSheet({ pin, onDismiss }: PlaceSheetProps) {
                   </div>
                 )}
 
-                {/* 5. Description or source fallback */}
+                {/* 5. The Vibe (Description) — separated by subtle divider */}
+                <div className="mt-[24px] mb-[24px] h-[1px] w-full bg-[#F4F4F5]" />
                 {pin.description ? (
-                  <p className="text-[15px] leading-[22px] text-[#52525B] tracking-[-0.1px] line-clamp-4 mt-[16px]">
+                  <p className="text-[13px] leading-[22px] text-[#52525B] italic tracking-[0.1px] line-clamp-6">
                     {pin.description}
                   </p>
                 ) : (
-                  <p className="text-[15px] leading-[22px] text-[#71717A] italic mt-[16px]">
+                  <p className="text-[13px] leading-[22px] text-[#71717A] italic tracking-[0.1px]">
                     Saved from{" "}
                     <span className="font-medium not-italic text-[#52525B]">
                       {new URL(pin.sourceUrl).hostname}
@@ -220,7 +216,7 @@ export default function PlaceSheet({ pin, onDismiss }: PlaceSheetProps) {
                   href={pin.sourceUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="mt-[24px] h-[56px] w-full bg-[#111111] text-white text-[15px] font-bold rounded-[16px] flex items-center justify-center gap-[8px] transition-all active:scale-[0.97] hover:bg-[#222222]"
+                  className="mt-[24px] h-[56px] w-full bg-black text-white text-[16px] font-bold rounded-[28px] flex items-center justify-center gap-[8px] transition-all active:scale-[0.97] hover:bg-[#222222]"
                 >
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                     <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />

@@ -3,7 +3,7 @@
 import { GeocodeResult } from '@/types';
 
 const GOOGLE_PLACES_URL = 'https://places.googleapis.com/v1/places:searchText';
-const FIELD_MASK = 'places.location,places.displayName,places.formattedAddress,places.primaryType,places.rating,places.id';
+const FIELD_MASK = 'places.location,places.displayName,places.formattedAddress,places.primaryType,places.rating,places.id,places.userRatingCount';
 const TIMEOUT_MS = 10_000;
 
 interface GooglePlacesResponse {
@@ -14,33 +14,55 @@ interface GooglePlacesResponse {
     location: { latitude: number; longitude: number };
     primaryType?: string;
     rating?: number;
+    userRatingCount?: number;
   }>;
 }
 
-type GooglePlace = NonNullable<GooglePlacesResponse['places']>[number];
+export type GooglePlace = NonNullable<GooglePlacesResponse['places']>[number];
 
 /**
  * Prominence Picking — resolve multi-result ambiguity without human fallback.
  *
- * Strategy:
- * 1. If the top result has a high rating (> 4.0), it's likely the canonical match.
- * 2. If a result's displayName contains any contextual hint (e.g. "Hong Kong"),
- *    it's a strong signal of relevance.
- * 3. If the top two results share the same name AND are in the same city-level
- *    area (lat/lng within ~0.05°), they're truly ambiguous → return null.
- * 4. Otherwise, the first result wins (Google's own ranking is a strong signal).
+ * Priority order:
+ * 1. Contextual hint match on formattedAddress only (case-insensitive).
+ * 2. Rating > 4.2 AND userRatingCount > 50 on the first result.
+ * 3. Ambiguity check — same displayName (case-insensitive) + coords within 0.05°.
+ * 4. Default to first result (Google's own ranking is a strong signal).
  */
-function pickProminentPlace(
+export function pickProminentPlace(
   places: GooglePlace[],
   contextualHints?: string[],
 ): GooglePlace | null {
   if (places.length === 0) return null;
   if (places.length === 1) return places[0];
 
-  const first = places[0];
-  const second = places[1];
+  // Step 1: Contextual hint match on formattedAddress only
+  if (contextualHints && contextualHints.length > 0) {
+    const hintsLower = contextualHints.map((h) => h.toLowerCase());
+    for (const place of places) {
+      const addressLower = (place.formattedAddress ?? '').toLowerCase();
+      if (hintsLower.some((hint) => addressLower.includes(hint))) {
+        console.log('[pickProminentPlace] Contextual hint match:', place.displayName.text);
+        return place;
+      }
+    }
+  }
 
-  // Check for true ambiguity: same name + geographically close
+  const first = places[0];
+
+  // Step 2: Rating > 4.2 AND userRatingCount > 50
+  if (
+    first.rating != null &&
+    first.rating > 4.2 &&
+    first.userRatingCount != null &&
+    first.userRatingCount > 50
+  ) {
+    console.log('[pickProminentPlace] High-rating first result:', first.displayName.text, first.rating, first.userRatingCount);
+    return first;
+  }
+
+  // Step 3: Ambiguity check — same displayName + geographically close
+  const second = places[1];
   const sameName =
     first.displayName.text.toLowerCase() === second.displayName.text.toLowerCase();
   const latDiff = Math.abs(first.location.latitude - second.location.latitude);
@@ -48,29 +70,10 @@ function pickProminentPlace(
   const geographicallyClose = latDiff < 0.05 && lngDiff < 0.05;
 
   if (sameName && geographicallyClose) {
-    // Genuinely ambiguous — two places with the same name in the same area
     return null;
   }
 
-  // Contextual hint match — boost any result whose name contains a hint
-  if (contextualHints && contextualHints.length > 0) {
-    const hintsLower = contextualHints.map((h) => h.toLowerCase());
-    for (const place of places) {
-      const nameLower = place.displayName.text.toLowerCase();
-      if (hintsLower.some((hint) => nameLower.includes(hint))) {
-        console.log('[pickProminentPlace] Contextual hint match:', place.displayName.text);
-        return place;
-      }
-    }
-  }
-
-  // High-rating first result is a strong prominence signal
-  if (first.rating != null && first.rating > 4.0) {
-    console.log('[pickProminentPlace] High-rating first result:', first.displayName.text, first.rating);
-    return first;
-  }
-
-  // Default: trust Google's ranking — the first result is the most relevant
+  // Step 4: Default to first result
   console.log('[pickProminentPlace] Defaulting to first result:', first.displayName.text);
   return first;
 }
@@ -142,6 +145,7 @@ export async function geocodeLocation(input: {
         lat: winner.location.latitude,
         lng: winner.location.longitude,
         displayName: winner.formattedAddress || winner.displayName.text,
+        address: winner.formattedAddress ?? winner.displayName.text,
         enrichedData: {
           placeId: winner.id,
           primaryType: winner.primaryType,

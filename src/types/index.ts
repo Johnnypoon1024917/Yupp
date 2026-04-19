@@ -45,6 +45,6 @@ export interface EnrichedData {
 }
 
 export type GeocodeResult =
-  | { status: 'success'; lat: number; lng: number; displayName: string; enrichedData: EnrichedData }
+  | { status: 'success'; lat: number; lng: number; displayName: string; address: string; enrichedData: EnrichedData }
   | { status: 'needs_user_input'; partialData: { title: string; imageUrl: string | null } }
   | { status: 'error'; error: string };

@@ -172,6 +172,7 @@ describe('scrapeUrl', () => {
     expect(result).toEqual({
       success: true,
       title: 'Beautiful Bali Temple',
+      description: null,
       imageUrl: 'https://example.com/bali.jpg',
       location: 'Bali, Indonesia',
       contextualHints: ['Bali', 'Indonesia', 'Temple'],
@@ -224,6 +225,7 @@ describe('scrapeUrl', () => {
     expect(result).toEqual({
       success: true,
       title: 'My Title',
+      description: null,
       imageUrl: 'https://img.jpg',
       location: 'Tokyo, Japan',
       contextualHints: ['Tokyo'],
