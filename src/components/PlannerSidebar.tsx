@@ -1,16 +1,18 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type RefObject } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Drawer } from 'vaul';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 import ItineraryToolbar from '@/components/planner/ItineraryToolbar';
 import TripTimeline from '@/components/planner/TripTimeline';
 import LibraryPane from '@/components/planner/LibraryPane';
+import type { MapViewRef } from '@/components/MapView';
 
 export interface PlannerSidebarProps {
   isOpen: boolean;
   onClose: () => void;
+  mapViewRef?: RefObject<MapViewRef | null>;
 }
 
 /** Shared planner content — rendered inside both desktop panel and mobile drawer. */
@@ -40,7 +42,7 @@ function PlannerContent() {
   );
 }
 
-export default function PlannerSidebar({ isOpen, onClose }: PlannerSidebarProps) {
+export default function PlannerSidebar({ isOpen, onClose, mapViewRef }: PlannerSidebarProps) {
   const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
@@ -50,6 +52,16 @@ export default function PlannerSidebar({ isOpen, onClose }: PlannerSidebarProps)
     mql.addEventListener('change', update);
     return () => mql.removeEventListener('change', update);
   }, []);
+
+  const handlePointerEnter = () => mapViewRef?.current?.disableInteractions();
+  const handlePointerLeave = () => mapViewRef?.current?.enableInteractions();
+
+  // Re-enable map interactions when sidebar closes
+  useEffect(() => {
+    if (!isOpen) {
+      mapViewRef?.current?.enableInteractions();
+    }
+  }, [isOpen, mapViewRef]);
 
   /* Desktop (≥768px): Framer Motion right-side panel */
   if (!isMobile) {
@@ -64,6 +76,8 @@ export default function PlannerSidebar({ isOpen, onClose }: PlannerSidebarProps)
             className="fixed inset-y-0 right-0 z-[80] max-w-[400px] w-full bg-surface border-l border-border shadow-[-10px_0_40px_rgba(0,0,0,0.1)] flex flex-col"
             aria-label="Planner sidebar"
             onPointerDown={(e) => e.stopPropagation()}
+            onPointerEnter={handlePointerEnter}
+            onPointerLeave={handlePointerLeave}
           >
             <PlannerContent />
           </motion.aside>
@@ -86,6 +100,8 @@ export default function PlannerSidebar({ isOpen, onClose }: PlannerSidebarProps)
           className="fixed inset-0 z-[80] bg-surface flex flex-col"
           aria-label="Planner drawer"
           onPointerDown={(e) => e.stopPropagation()}
+          onPointerEnter={handlePointerEnter}
+          onPointerLeave={handlePointerLeave}
         >
           <Drawer.Handle className="mx-auto mt-2 h-1.5 w-12 rounded-full bg-gray-300" />
           <Drawer.Title className="sr-only">Trip Planner</Drawer.Title>

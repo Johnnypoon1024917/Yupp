@@ -10,6 +10,8 @@ import type { Pin } from '@/types';
 export interface MapViewRef {
   flyToPin: (lat: number, lng: number) => void;
   resize: () => void;
+  disableInteractions: () => void;
+  enableInteractions: () => void;
 }
 
 const TILE_STYLE = 'https://tiles.stadiamaps.com/styles/alidade_smooth.json';
@@ -102,8 +104,34 @@ const MapView = forwardRef<MapViewRef, MapViewProps>(function MapView({ classNam
     mapRef.current?.resize();
   }, []);
 
-  // Expose flyToPin and resize via ref for external use
-  useImperativeHandle(ref, () => ({ flyToPin, resize }), [flyToPin, resize]);
+  /** Disable all map interactions (pan, zoom, rotate, keyboard) */
+  const disableInteractions = useCallback(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    map.dragPan.disable();
+    map.scrollZoom.disable();
+    map.boxZoom.disable();
+    map.dragRotate.disable();
+    map.keyboard.disable();
+    map.doubleClickZoom.disable();
+    map.touchZoomRotate.disable();
+  }, []);
+
+  /** Re-enable all map interactions */
+  const enableInteractions = useCallback(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    map.dragPan.enable();
+    map.scrollZoom.enable();
+    map.boxZoom.enable();
+    map.dragRotate.enable();
+    map.keyboard.enable();
+    map.doubleClickZoom.enable();
+    map.touchZoomRotate.enable();
+  }, []);
+
+  // Expose flyToPin, resize, and interaction controls via ref
+  useImperativeHandle(ref, () => ({ flyToPin, resize, disableInteractions, enableInteractions }), [flyToPin, resize, disableInteractions, enableInteractions]);
 
   // Initialize the map once
   useEffect(() => {

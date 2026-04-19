@@ -131,6 +131,7 @@ export default function AppLayout() {
           <PlannerSidebar
             isOpen={isPlannerOpen}
             onClose={() => setIsPlannerOpen(false)}
+            mapViewRef={mapViewRef}
           />
           <DragOverlay dropAnimation={null} zIndex={85}>
             {activeDrag ? <DragPreview data={activeDrag} /> : null}
