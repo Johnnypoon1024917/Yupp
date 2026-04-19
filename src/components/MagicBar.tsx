@@ -93,10 +93,12 @@ const MagicBar = forwardRef<MagicBarRef, MagicBarProps>(function MagicBar({ onPi
           case 'success': {
             const newPin = addPin({
               title: scrapeResult.title,
+              description: scrapeResult.description ?? undefined,
               imageUrl: scrapeResult.imageUrl ?? '/placeholder-pin.svg',
               sourceUrl: scrapeResult.sourceUrl,
               latitude: geocodeResult.lat,
               longitude: geocodeResult.lng,
+              address: geocodeResult.displayName,
               placeId: geocodeResult.enrichedData.placeId,
               primaryType: geocodeResult.enrichedData.primaryType,
               rating: geocodeResult.enrichedData.rating,
@@ -148,6 +150,7 @@ const MagicBar = forwardRef<MagicBarRef, MagicBarProps>(function MagicBar({ onPi
             sourceUrl,
             latitude: geocodeResult.lat,
             longitude: geocodeResult.lng,
+            address: geocodeResult.displayName,
             placeId: geocodeResult.enrichedData.placeId,
             primaryType: geocodeResult.enrichedData.primaryType,
             rating: geocodeResult.enrichedData.rating,

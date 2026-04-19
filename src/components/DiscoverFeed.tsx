@@ -1,7 +1,8 @@
 'use client';
 
+import { useCallback } from 'react';
 import { Drawer } from 'vaul';
-import { MapPin } from 'lucide-react';
+import { MapPin, X } from 'lucide-react';
 import useTravelPinStore from '@/store/useTravelPinStore';
 
 export interface DiscoverFeedProps {
@@ -12,6 +13,18 @@ export interface DiscoverFeedProps {
 export default function DiscoverFeed({ open, onOpenChange }: DiscoverFeedProps) {
   const pins = useTravelPinStore((s) => s.pins);
   const setActivePinId = useTravelPinStore((s) => s.setActivePinId);
+  const removePin = useTravelPinStore((s) => s.removePin);
+
+  const handleRemove = useCallback(
+    (e: React.MouseEvent, pinId: string, pinTitle: string) => {
+      e.stopPropagation();
+      const confirmed = window.confirm(
+        `Remove "${pinTitle}" from your map?`
+      );
+      if (confirmed) removePin(pinId);
+    },
+    [removePin]
+  );
 
   return (
     <Drawer.Root open={open} onOpenChange={onOpenChange}>
@@ -45,35 +58,46 @@ export default function DiscoverFeed({ open, onOpenChange }: DiscoverFeedProps) 
           ) : (
             <div className="flex-1 overflow-y-auto px-[16px] py-[16px] grid grid-cols-2 gap-[12px] pb-[100px] auto-rows-min">
               {pins.map((pin) => (
-                <button
-                  key={pin.id}
-                  type="button"
-                  onClick={() => {
-                    setActivePinId(pin.id);
-                    onOpenChange(false);
-                  }}
-                  className="relative w-full aspect-[4/5] rounded-[16px] overflow-hidden group cursor-pointer shadow-sm focus:outline-none focus:ring-2 focus:ring-accent"
-                >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={pin.imageUrl}
-                    alt={pin.title}
-                    className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                  />
-                  {/* Gradient overlay */}
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
-                  {/* Text content docked at bottom */}
-                  <div className="absolute bottom-0 left-0 p-[16px] w-full">
-                    <h3 className="text-white font-bold text-[15px] leading-[20px] tracking-[-0.2px] line-clamp-2 drop-shadow-md">
-                      {pin.title}
-                    </h3>
-                    {pin.rating != null && (
-                      <p className="text-white/70 text-[12px] leading-[16px] mt-[4px]">
-                        ⭐ {pin.rating.toFixed(1)}
-                      </p>
-                    )}
-                  </div>
-                </button>
+                <div key={pin.id} className="relative group/card">
+                  {/* Remove button — visible on hover / always tappable */}
+                  <button
+                    type="button"
+                    onClick={(e) => handleRemove(e, pin.id, pin.title)}
+                    className="absolute top-[8px] right-[8px] z-10 p-[6px] bg-black/40 backdrop-blur-md rounded-full text-white opacity-0 group-hover/card:opacity-100 focus:opacity-100 transition-opacity active:bg-black/60"
+                    aria-label={`Remove ${pin.title}`}
+                  >
+                    <X size={14} strokeWidth={2.5} />
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActivePinId(pin.id);
+                      onOpenChange(false);
+                    }}
+                    className="relative w-full aspect-[4/5] rounded-[16px] overflow-hidden cursor-pointer shadow-sm focus:outline-none focus:ring-2 focus:ring-accent"
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={pin.imageUrl}
+                      alt={pin.title}
+                      className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover/card:scale-105"
+                    />
+                    {/* Gradient overlay */}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+                    {/* Text content docked at bottom */}
+                    <div className="absolute bottom-0 left-0 p-[16px] w-full">
+                      <h3 className="text-white font-bold text-[15px] leading-[20px] tracking-[-0.2px] line-clamp-2 drop-shadow-md">
+                        {pin.title}
+                      </h3>
+                      {pin.rating != null && (
+                        <p className="text-white/70 text-[12px] leading-[16px] mt-[4px]">
+                          ⭐ {pin.rating.toFixed(1)}
+                        </p>
+                      )}
+                    </div>
+                  </button>
+                </div>
               ))}
             </div>
           )}

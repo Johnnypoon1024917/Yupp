@@ -24,6 +24,8 @@ CREATE TABLE pins (
   place_id      TEXT,
   primary_type  TEXT,
   rating        FLOAT,
+  description   TEXT,
+  address       TEXT,
   created_at    TIMESTAMPTZ DEFAULT now()
 );
 

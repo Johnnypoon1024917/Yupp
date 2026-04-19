@@ -89,18 +89,182 @@ export function remapPinCollectionIds(
 }
 
 // ---------------------------------------------------------------------------
-// Main hook: 8.1, 8.5, 8.6, 8.7
+// Hydrate helpers — map Supabase rows → app types
+// ---------------------------------------------------------------------------
+
+function hydrateCollections(rows: Record<string, unknown>[]): Collection[] {
+  return rows.map((c) => ({
+    id: c.id as string,
+    name: c.name as string,
+    createdAt: c.created_at as string,
+    user_id: c.user_id as string,
+    isPublic: c.is_public as boolean,
+  }));
+}
+
+function hydratePins(rows: Record<string, unknown>[]): Pin[] {
+  return rows.map((p) => ({
+    id: p.id as string,
+    title: p.title as string,
+    description: (p.description as string) ?? undefined,
+    imageUrl: p.image_url as string,
+    sourceUrl: p.source_url as string,
+    latitude: p.latitude as number,
+    longitude: p.longitude as number,
+    collectionId: p.collection_id as string,
+    createdAt: p.created_at as string,
+    user_id: p.user_id as string,
+    placeId: (p.place_id as string) ?? undefined,
+    primaryType: (p.primary_type as string) ?? undefined,
+    rating: (p.rating as number) ?? undefined,
+    address: (p.address as string) ?? undefined,
+  }));
+}
+
+// ---------------------------------------------------------------------------
+// Core sync: push unsynced local data → Supabase, then hydrate store
+// ---------------------------------------------------------------------------
+
+async function pushLocalDataAndHydrate(
+  supabase: ReturnType<typeof createClient>,
+  userId: string,
+) {
+  const { pins, collections } = useTravelPinStore.getState();
+  const { setCloudData } = useTravelPinStore.getState();
+  const { localPins, localCollections } = getLocalData(pins, collections);
+
+  // Filter out the default "unorganized" placeholder — it's not a real
+  // user collection and shouldn't be inserted into Supabase.
+  const collectionsToInsert = localCollections.filter(
+    (c) => c.id !== 'unorganized',
+  );
+
+  let collectionIdMap = new Map<string, string>();
+  let unorganizedCloudId: string | undefined;
+
+  // Ensure the user has an "Unorganized" collection in the cloud
+  const { data: existingUnorganized } = await supabase
+    .from('collections')
+    .select('id')
+    .eq('user_id', userId)
+    .eq('name', 'Unorganized')
+    .limit(1)
+    .single();
+
+  if (existingUnorganized) {
+    unorganizedCloudId = existingUnorganized.id;
+  } else {
+    const { data: newUnorganized } = await supabase
+      .from('collections')
+      .insert({ user_id: userId, name: 'Unorganized' })
+      .select('id')
+      .single();
+    unorganizedCloudId = newUnorganized?.id;
+  }
+
+  if (!unorganizedCloudId) {
+    throw new Error('Failed to resolve unorganized collection');
+  }
+
+  // Batch insert local collections, build ID map
+  if (collectionsToInsert.length > 0) {
+    const rows = collectionsToInsert.map((c) => ({
+      user_id: userId,
+      name: c.name,
+      is_public: c.isPublic ?? false,
+    }));
+
+    const { data: cloudCols, error: colErr } = await supabase
+      .from('collections')
+      .insert(rows)
+      .select('id');
+
+    if (colErr) throw colErr;
+    collectionIdMap = buildCollectionIdMap(
+      collectionsToInsert,
+      cloudCols ?? [],
+    );
+  }
+
+  // Map the local "unorganized" id to the cloud unorganized id
+  collectionIdMap.set('unorganized', unorganizedCloudId);
+
+  // Remap pin collection IDs and batch insert
+  if (localPins.length > 0) {
+    const remappedPins = remapPinCollectionIds(
+      localPins,
+      collectionIdMap,
+      unorganizedCloudId,
+    );
+
+    const pinRows = remappedPins.map((p) => ({
+      user_id: userId,
+      collection_id: p.collectionId,
+      title: p.title,
+      description: p.description ?? null,
+      image_url: p.imageUrl,
+      source_url: p.sourceUrl,
+      latitude: p.latitude,
+      longitude: p.longitude,
+      place_id: p.placeId ?? null,
+      primary_type: p.primaryType ?? null,
+      rating: p.rating ?? null,
+      address: p.address ?? null,
+    }));
+
+    const { error: pinErr } = await supabase
+      .from('pins')
+      .insert(pinRows);
+
+    if (pinErr) throw pinErr;
+  }
+
+  // Post-sync hydration — fetch all cloud data
+  const { data: cloudCollections } = await supabase
+    .from('collections')
+    .select('*')
+    .eq('user_id', userId);
+
+  const { data: cloudPins } = await supabase
+    .from('pins')
+    .select('*')
+    .eq('user_id', userId);
+
+  setCloudData(
+    hydratePins((cloudPins ?? []) as Record<string, unknown>[]),
+    hydrateCollections((cloudCollections ?? []) as Record<string, unknown>[]),
+  );
+
+  return { syncedPins: localPins.length, syncedCollections: collectionsToInsert.length };
+}
+
+// ---------------------------------------------------------------------------
+// Main hook: 8.1, 8.5, 8.6, 8.7 + live sync for post-login pin creation
 // ---------------------------------------------------------------------------
 
 export default function useCloudSync() {
   useEffect(() => {
     const supabase = createClient();
-    const { setUser, setCloudData } = useTravelPinStore.getState();
+    const { setUser } = useTravelPinStore.getState();
 
-    // 8.1 — Check for existing session on mount
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    // 8.1 — Check for existing session on mount and sync any unsynced pins
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (session?.user) {
         setUser(session.user);
+
+        // Catch-up sync: push any local pins that were created while
+        // already authenticated (e.g. added after login, page refreshed)
+        try {
+          const { pins } = useTravelPinStore.getState();
+          const hasUnsyncedPins = pins.some((p) => p.user_id === undefined);
+          if (hasUnsyncedPins) {
+            await pushLocalDataAndHydrate(supabase, session.user.id);
+            showToast('Pins synced to the cloud ☁️', 'success');
+          }
+        } catch (err) {
+          console.error('Catch-up sync failed:', err);
+          showToast('Sync failed — your local data is safe', 'error');
+        }
       }
     });
 
@@ -113,138 +277,11 @@ export default function useCloudSync() {
         setUser(user);
 
         try {
-          // 8.2 — Detect local data
-          const { pins, collections } = useTravelPinStore.getState();
-          const { localPins, localCollections } = getLocalData(pins, collections);
-
-          // Filter out the default "unorganized" placeholder — it's not a real
-          // user collection and shouldn't be inserted into Supabase.
-          const collectionsToInsert = localCollections.filter(
-            (c) => c.id !== 'unorganized',
-          );
-
-          let collectionIdMap = new Map<string, string>();
-          let unorganizedCloudId: string | undefined;
-
-          // Ensure the user has an "Unorganized" collection in the cloud
-          const { data: existingUnorganized } = await supabase
-            .from('collections')
-            .select('id')
-            .eq('user_id', user.id)
-            .eq('name', 'Unorganized')
-            .limit(1)
-            .single();
-
-          if (existingUnorganized) {
-            unorganizedCloudId = existingUnorganized.id;
-          } else {
-            const { data: newUnorganized } = await supabase
-              .from('collections')
-              .insert({ user_id: user.id, name: 'Unorganized' })
-              .select('id')
-              .single();
-            unorganizedCloudId = newUnorganized?.id;
+          const { syncedPins } = await pushLocalDataAndHydrate(supabase, user.id);
+          if (syncedPins > 0) {
+            showToast('Your pins have been synced to the cloud ☁️', 'success');
           }
-
-          if (!unorganizedCloudId) {
-            throw new Error('Failed to resolve unorganized collection');
-          }
-
-          // 8.3 — Batch insert local collections, build ID map
-          if (collectionsToInsert.length > 0) {
-            const rows = collectionsToInsert.map((c) => ({
-              user_id: user.id,
-              name: c.name,
-              is_public: c.isPublic ?? false,
-            }));
-
-            const { data: cloudCols, error: colErr } = await supabase
-              .from('collections')
-              .insert(rows)
-              .select('id');
-
-            if (colErr) throw colErr;
-            collectionIdMap = buildCollectionIdMap(
-              collectionsToInsert,
-              cloudCols ?? [],
-            );
-          }
-
-          // Map the local "unorganized" id to the cloud unorganized id
-          collectionIdMap.set('unorganized', unorganizedCloudId);
-
-          // 8.4 — Remap pin collection IDs and batch insert
-          if (localPins.length > 0) {
-            const remappedPins = remapPinCollectionIds(
-              localPins,
-              collectionIdMap,
-              unorganizedCloudId,
-            );
-
-            const pinRows = remappedPins.map((p) => ({
-              user_id: user.id,
-              collection_id: p.collectionId,
-              title: p.title,
-              image_url: p.imageUrl,
-              source_url: p.sourceUrl,
-              latitude: p.latitude,
-              longitude: p.longitude,
-              place_id: p.placeId ?? null,
-              primary_type: p.primaryType ?? null,
-              rating: p.rating ?? null,
-            }));
-
-            const { error: pinErr } = await supabase
-              .from('pins')
-              .insert(pinRows);
-
-            if (pinErr) throw pinErr;
-          }
-
-          // 8.5 — Post-migration hydration
-          const { data: cloudCollections } = await supabase
-            .from('collections')
-            .select('*')
-            .eq('user_id', user.id);
-
-          const { data: cloudPins } = await supabase
-            .from('pins')
-            .select('*')
-            .eq('user_id', user.id);
-
-          const hydratedCollections: Collection[] = (cloudCollections ?? []).map(
-            (c: Record<string, unknown>) => ({
-              id: c.id as string,
-              name: c.name as string,
-              createdAt: c.created_at as string,
-              user_id: c.user_id as string,
-              isPublic: c.is_public as boolean,
-            }),
-          );
-
-          const hydratedPins: Pin[] = (cloudPins ?? []).map(
-            (p: Record<string, unknown>) => ({
-              id: p.id as string,
-              title: p.title as string,
-              imageUrl: p.image_url as string,
-              sourceUrl: p.source_url as string,
-              latitude: p.latitude as number,
-              longitude: p.longitude as number,
-              collectionId: p.collection_id as string,
-              createdAt: p.created_at as string,
-              user_id: p.user_id as string,
-              placeId: (p.place_id as string) ?? undefined,
-              primaryType: (p.primary_type as string) ?? undefined,
-              rating: (p.rating as number) ?? undefined,
-            }),
-          );
-
-          setCloudData(hydratedPins, hydratedCollections);
-
-          // 8.7 — Success toast
-          showToast('Your pins have been synced to the cloud ☁️', 'success');
         } catch (err) {
-          // 8.7 — Error toast, retain local data
           console.error('Cloud sync failed:', err);
           showToast('Sync failed — your local data is safe', 'error');
         }
@@ -256,9 +293,87 @@ export default function useCloudSync() {
       }
     });
 
-    // 8.1 — Cleanup subscription on unmount
+    // --- Live sync: subscribe to store changes and push new pins in real-time ---
+    const unsubscribeStore = useTravelPinStore.subscribe(
+      async (state, prevState) => {
+        // Only act when a new pin was added (array grew)
+        if (state.pins.length <= prevState.pins.length) return;
+        if (!state.user) return;
+
+        // Find newly added pins that don't have a user_id yet
+        const prevIds = new Set(prevState.pins.map((p) => p.id));
+        const newPins = state.pins.filter(
+          (p) => !prevIds.has(p.id) && p.user_id === undefined,
+        );
+
+        if (newPins.length === 0) return;
+
+        try {
+          // Resolve the user's unorganized collection ID in the cloud
+          const { data: unorgRow } = await supabase
+            .from('collections')
+            .select('id')
+            .eq('user_id', state.user.id)
+            .eq('name', 'Unorganized')
+            .limit(1)
+            .single();
+
+          const unorganizedCloudId = unorgRow?.id;
+          if (!unorganizedCloudId) {
+            console.error('[liveSync] Could not resolve unorganized collection');
+            return;
+          }
+
+          const pinRows = newPins.map((p) => ({
+            user_id: state.user!.id,
+            collection_id: unorganizedCloudId,
+            title: p.title,
+            description: p.description ?? null,
+            image_url: p.imageUrl,
+            source_url: p.sourceUrl,
+            latitude: p.latitude,
+            longitude: p.longitude,
+            place_id: p.placeId ?? null,
+            primary_type: p.primaryType ?? null,
+            rating: p.rating ?? null,
+            address: p.address ?? null,
+          }));
+
+          const { data: insertedPins, error: pinErr } = await supabase
+            .from('pins')
+            .insert(pinRows)
+            .select('*');
+
+          if (pinErr) {
+            console.error('[liveSync] Pin insert failed:', pinErr);
+            showToast('Failed to save pin to cloud', 'error');
+            return;
+          }
+
+          // Stamp the local pins with user_id + cloud IDs so they're
+          // no longer detected as "unsynced"
+          if (insertedPins && insertedPins.length > 0) {
+            const hydratedNew = hydratePins(insertedPins as Record<string, unknown>[]);
+            const { pins: currentPins } = useTravelPinStore.getState();
+
+            // Replace the local (no user_id) versions with the cloud versions
+            const newPinIds = new Set(newPins.map((p) => p.id));
+            const updatedPins = currentPins
+              .filter((p) => !newPinIds.has(p.id))
+              .concat(hydratedNew);
+
+            useTravelPinStore.setState({ pins: updatedPins });
+          }
+        } catch (err) {
+          console.error('[liveSync] Unexpected error:', err);
+        }
+      },
+    );
+
+    // Cleanup
     return () => {
       subscription.unsubscribe();
+      unsubscribeStore();
     };
   }, []);
 }

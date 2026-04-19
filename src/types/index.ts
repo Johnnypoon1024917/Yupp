@@ -1,6 +1,7 @@
 export interface Pin {
   id: string;            // UUID v4
-  title: string;         // From og:title or <title>
+  title: string;         // Clean place/venue name
+  description?: string;  // Caption or body text from source
   imageUrl: string;      // From og:image or placeholder identifier
   sourceUrl: string;     // Original pasted URL
   latitude: number;      // From geocoder
@@ -10,6 +11,7 @@ export interface Pin {
   placeId?: string;      // Google Places unique identifier
   primaryType?: string;  // Place type (e.g., "restaurant")
   rating?: number;       // Google rating (1.0–5.0)
+  address?: string;      // Human-readable location from geocoder displayName
   user_id?: string;      // Set when persisted to cloud
 }
 
@@ -24,6 +26,7 @@ export interface Collection {
 export interface ScrapeResult {
   success: true;
   title: string;
+  description: string | null; // Caption/body text split from title
   imageUrl: string | null; // null → use placeholder
   location: string;
   contextualHints: string[]; // e.g., ["Bali", "Indonesia"] from bio/caption

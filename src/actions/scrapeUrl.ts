@@ -243,10 +243,30 @@ export async function extractContextualHints(page: Page): Promise<string[]> {
   return page.evaluate(() => {
     const hints = new Set<string>();
 
-    // Gather text from og:description
+    // Common non-place words that match the capitalized pattern but are noise
+    const NOISE_WORDS = new Set([
+      'the', 'and', 'for', 'with', 'from', 'this', 'that', 'have', 'been',
+      'will', 'just', 'more', 'about', 'like', 'your', 'what', 'when',
+      'instagram', 'facebook', 'twitter', 'tiktok', 'youtube', 'pinterest',
+      'react', 'next', 'node', 'app', 'web', 'api', 'css', 'html',
+      'mozilla', 'chrome', 'safari', 'firefox', 'google', 'apple', 'meta',
+      'sign', 'login', 'log', 'menu', 'home', 'search', 'share', 'save',
+      'follow', 'following', 'followers', 'likes', 'comments', 'post',
+      'posts', 'reels', 'stories', 'story', 'explore', 'profile',
+      'settings', 'privacy', 'terms', 'help', 'about', 'contact',
+      'copyright', 'reserved', 'rights', 'cookie', 'cookies',
+      'january', 'february', 'march', 'april', 'may', 'june',
+      'july', 'august', 'september', 'october', 'november', 'december',
+      'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday',
+      'grateful', 'beautiful', 'amazing', 'best', 'great', 'love', 'top',
+      'new', 'view', 'more', 'see', 'get', 'try', 'now', 'today',
+      'falco', 'collabri', 'vercel', 'supabase', 'github',
+    ]);
+
+    // Gather text from og:description and caption-like elements only
+    // (NOT the full body — that's where all the noise comes from)
     const ogDesc = document.querySelector('meta[property="og:description"]')?.getAttribute('content') || '';
 
-    // Gather text from caption-like elements
     const captionSelectors = [
       '[class*="caption"]',
       '[class*="bio"]',
@@ -263,39 +283,75 @@ export async function extractContextualHints(page: Page): Promise<string[]> {
       }
     }
 
-    // Also include general rendered body text
-    const bodyText = document.body?.textContent || '';
-
-    const allText = captionText + ' ' + bodyText;
-
-    // Capitalized place names (e.g., "Bali", "New York")
-    const placePattern = /\b([A-Z][a-z]{2,}(?:\s+[A-Z][a-z]{2,})*)\b/g;
-    let match;
-    while ((match = placePattern.exec(allText)) !== null) {
-      if (match[1] && match[1].length > 2) {
-        hints.add(match[1]);
-      }
-    }
-
-    // 📍 patterns
+    // 📍 patterns — strongest signal, check in all visible text
+    const allText = captionText + ' ' + (document.body?.textContent || '');
     const pinPattern = /📍\s*([A-Za-z\s,]+)/g;
+    let match;
     while ((match = pinPattern.exec(allText)) !== null) {
       if (match[1]?.trim()) {
         hints.add(match[1].trim());
       }
     }
 
-    // Place-like hashtags (e.g., #BaliIndonesia → "Bali Indonesia")
+    // Place-like hashtags from all text (e.g., #BaliIndonesia → "Bali Indonesia")
     const hashtagPattern = /#([A-Za-z]{3,})/g;
     while ((match = hashtagPattern.exec(allText)) !== null) {
       if (match[1]) {
         const expanded = match[1].replace(/([a-z])([A-Z])/g, '$1 $2');
-        hints.add(expanded);
+        if (!NOISE_WORDS.has(expanded.toLowerCase())) {
+          hints.add(expanded);
+        }
+      }
+    }
+
+    // Capitalized multi-word place names (e.g., "Hong Kong", "New York")
+    // Only from caption text, not the full body
+    const multiWordPattern = /\b([A-Z][a-z]{2,}(?:\s+[A-Z][a-z]{2,})+)\b/g;
+    while ((match = multiWordPattern.exec(captionText)) !== null) {
+      if (match[1]) {
+        const words = match[1].toLowerCase().split(/\s+/);
+        const allNoise = words.every((w) => NOISE_WORDS.has(w));
+        if (!allNoise) {
+          hints.add(match[1]);
+        }
+      }
+    }
+
+    // Single capitalized words — from og:description, caption text, and body
+    // Noise filter prevents picking up UI chrome words
+    const singlePlacePattern = /\b([A-Z][a-z]{2,})\b/g;
+    while ((match = singlePlacePattern.exec(allText)) !== null) {
+      if (match[1] && !NOISE_WORDS.has(match[1].toLowerCase())) {
+        hints.add(match[1]);
       }
     }
 
     return Array.from(hints).slice(0, 10);
   });
+}
+
+/**
+ * Split a raw og:title into a clean venue name and description.
+ * Handles Instagram-style titles like:
+ *   'TATE Dining Room on Instagram: "Grateful for another year..."'
+ * Also handles generic "Name - Site" and "Name | Site" patterns.
+ */
+export async function splitTitleAndDescription(rawTitle: string): Promise<{ title: string; description: string | null }> {
+  // Instagram pattern: "AccountName on Instagram: "caption text""
+  const igMatch = rawTitle.match(/^(.+?)\s+on\s+Instagram:\s*"?([\s\S]*?)"?\s*$/i);
+  if (igMatch) {
+    const name = igMatch[1].trim();
+    const caption = igMatch[2].trim().replace(/"$/, '').trim();
+    return { title: name, description: caption || null };
+  }
+
+  // Generic "Title - SiteName" or "Title | SiteName"
+  const separatorMatch = rawTitle.match(/^(.+?)\s*[|\-–—]\s*(?:Instagram|Facebook|Twitter|TikTok|YouTube|X)\s*$/i);
+  if (separatorMatch) {
+    return { title: separatorMatch[1].trim(), description: null };
+  }
+
+  return { title: rawTitle, description: null };
 }
 
 /**
@@ -349,12 +405,13 @@ export async function scrapeUrl(url: string): Promise<ScrapeResult | ScrapeError
     }
 
     // Extract metadata
-    const title = await extractTitle(page);
+    const rawTitle = await extractTitle(page);
+    const { title, description } = await splitTitleAndDescription(rawTitle);
     const imageUrl = await extractImage(page);
     const location = await extractLocation(page);
     const contextualHints = await extractContextualHints(page);
 
-    console.log('[scrapeUrl] Extracted:', { title, imageUrl: imageUrl?.slice(0, 80), location, contextualHints });
+    console.log('[scrapeUrl] Extracted:', { title, description: description?.slice(0, 80), imageUrl: imageUrl?.slice(0, 80), location, contextualHints });
 
     // Location is required
     if (!location) {
@@ -367,6 +424,7 @@ export async function scrapeUrl(url: string): Promise<ScrapeResult | ScrapeError
     return {
       success: true,
       title,
+      description,
       imageUrl,
       location,
       contextualHints,
