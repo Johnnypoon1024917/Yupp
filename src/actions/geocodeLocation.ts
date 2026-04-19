@@ -148,6 +148,41 @@ export async function geocodeLocation(input: {
     const results = await queryNominatim(location.trim(), viewbox);
 
     if (results.length === 0) {
+      // Fallback: try combining location with contextual hints for more context
+      // e.g., "TATE Dining Room" alone fails, but "TATE Dining Room Hong Kong" might work
+      if (contextualHints && contextualHints.length > 0) {
+        for (const hint of contextualHints) {
+          const combinedQuery = `${location.trim()}, ${hint}`;
+          const combinedResults = await queryNominatim(combinedQuery);
+          if (combinedResults.length > 0) {
+            const best = selectBestResult(combinedResults);
+            return {
+              success: true,
+              lat: parseFloat(best.lat),
+              lng: parseFloat(best.lon),
+              displayName: best.display_name,
+              importance: best.importance,
+            };
+          }
+        }
+
+        // Last resort: try geocoding just the hints themselves
+        for (const hint of contextualHints) {
+          const hintResults = await queryNominatim(hint);
+          if (hintResults.length > 0) {
+            const best = selectBestResult(hintResults);
+            console.log(`Geocode: Fell back to contextual hint "${hint}" → "${best.display_name}"`);
+            return {
+              success: true,
+              lat: parseFloat(best.lat),
+              lng: parseFloat(best.lon),
+              displayName: best.display_name,
+              importance: best.importance,
+            };
+          }
+        }
+      }
+
       return {
         success: false,
         error: `Could not geocode location: "${location}". No results found.`,

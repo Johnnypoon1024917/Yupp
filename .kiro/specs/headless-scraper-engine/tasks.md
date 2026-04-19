@@ -46,9 +46,9 @@
 
 ## Task 7: Write property-based tests
 
-- [-] 7.1 [PBT] Property 1 — Login wall detection: generate random page titles (with/without "log in") and body structures (with/without article/main), verify `detectLoginWall` correctness
-- [~] 7.2 [PBT] Property 2 — Image extraction priority: generate DOMs with/without og:image and various img elements, verify og:image always wins when present
-- [~] 7.3 [PBT] Property 3 — Title extraction priority: generate DOMs with/without og:title and title elements, verify priority chain og:title > title > "Untitled"
-- [~] 7.4 [PBT] Property 4 — Location extraction source priority: generate DOMs with multiple location sources at different priority levels, verify highest-priority source is returned
-- [~] 7.5 [PBT] Property 5 — Contextual hints extraction: generate text with place names, 📍 patterns, and hashtags, verify all matching patterns extracted and capped at 10
-- [~] 7.6 [PBT] Property 6 — og:locale exclusion: generate DOMs with og:locale as only location-like data, verify extractLocation returns null
+- [x] 7.1 [PBT] Property 1 — Login wall detection: generate random page titles (with/without "log in") and body structures (with/without article/main), verify `detectLoginWall` correctness
+- [x] 7.2 [PBT] Property 2 — Image extraction priority: generate DOMs with/without og:image and various img elements, verify og:image always wins when present
+- [x] 7.3 [PBT] Property 3 — Title extraction priority: generate DOMs with/without og:title and title elements, verify priority chain og:title > title > "Untitled"
+- [x] 7.4 [PBT] Property 4 — Location extraction source priority: generate DOMs with multiple location sources at different priority levels, verify highest-priority source is returned
+- [x] 7.5 [PBT] Property 5 — Contextual hints extraction: generate text with place names, 📍 patterns, and hashtags, verify all matching patterns extracted and capped at 10
+- [x] 7.6 [PBT] Property 6 — og:locale exclusion: generate DOMs with og:locale as only location-like data, verify extractLocation returns null

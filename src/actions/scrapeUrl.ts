@@ -354,6 +354,8 @@ export async function scrapeUrl(url: string): Promise<ScrapeResult | ScrapeError
     const location = await extractLocation(page);
     const contextualHints = await extractContextualHints(page);
 
+    console.log('[scrapeUrl] Extracted:', { title, imageUrl: imageUrl?.slice(0, 80), location, contextualHints });
+
     // Location is required
     if (!location) {
       return {
