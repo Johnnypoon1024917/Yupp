@@ -8,8 +8,8 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { motion, AnimatePresence } from 'framer-motion';
+import { GripVertical, MapPin } from 'lucide-react';
 import type { PlannedPin } from '@/types';
-import { useDistanceMatrix } from '@/hooks/useDistanceMatrix';
 import BridgeElement from './BridgeElement';
 
 export interface DayContainerProps {
@@ -17,8 +17,8 @@ export interface DayContainerProps {
   pins: PlannedPin[];
 }
 
-/** Sortable planned-pin card: 64px thumbnail + title. */
-function SortablePlannedPinCard({ pin }: { pin: PlannedPin }) {
+/** TimelineCard: horizontal card — Image [64px x 64px rounded-lg] | Title | Drag Handle */
+function TimelineCard({ pin }: { pin: PlannedPin }) {
   const {
     attributes,
     listeners,
@@ -42,23 +42,32 @@ function SortablePlannedPinCard({ pin }: { pin: PlannedPin }) {
       ref={setNodeRef}
       style={style}
       {...attributes}
-      {...listeners}
-      className="flex items-center gap-3 rounded-lg bg-background border border-border p-2 min-w-0 cursor-grab"
+      className="flex items-center gap-3 rounded-lg bg-white border border-gray-200 p-2 min-w-0 group"
     >
-      <div className="w-16 h-16 rounded-md bg-neutral-100 overflow-hidden shrink-0">
+      <div className="w-16 h-16 rounded-lg bg-neutral-100 overflow-hidden shrink-0">
         {pin.imageUrl ? (
           <img
             src={pin.imageUrl}
             alt={pin.title}
             className="w-full h-full object-cover"
+            draggable={false}
           />
         ) : (
-          <div className="w-full h-full flex items-center justify-center text-neutral-300 text-xs">
-            No img
+          <div className="w-full h-full flex items-center justify-center text-neutral-300">
+            <MapPin className="w-5 h-5" />
           </div>
         )}
       </div>
-      <p className="text-sm font-medium text-primary truncate">{pin.title}</p>
+      <p className="flex-1 text-[13px] font-bold tracking-tight text-[#111111] truncate">
+        {pin.title}
+      </p>
+      <div
+        {...listeners}
+        className="shrink-0 p-1 cursor-grab active:cursor-grabbing text-neutral-300 group-hover:text-neutral-500 transition-colors"
+        aria-label="Drag handle"
+      >
+        <GripVertical className="w-4 h-4" />
+      </div>
     </div>
   );
 }
@@ -70,21 +79,23 @@ export default function DayContainer({ dayNumber, pins }: DayContainerProps) {
     data: { type: 'day-container', dayNumber },
   });
 
-  const { segments, isLoading } = useDistanceMatrix(pins, 'driving');
   const sortableIds = pins.map((p) => p.itinerary_item_id);
 
   return (
     <div
       ref={setNodeRef}
-      className={`rounded-card bg-surface border p-3 transition-colors ${
-        isOver ? 'border-accent bg-accent/5' : 'border-border'
+      className={`rounded-card border p-4 transition-colors ${
+        isOver ? 'border-accent bg-accent/5' : 'border-gray-200 bg-white'
       }`}
     >
-      <h3 className="text-sm font-semibold text-primary mb-2">Day {dayNumber}</h3>
+      {/* Yaay Standard day header */}
+      <h3 className="text-[24px] font-extrabold tracking-[-0.5px] mb-6 text-[#111111]">
+        Day {dayNumber}
+      </h3>
 
       <SortableContext items={sortableIds} strategy={verticalListSortingStrategy}>
         {pins.length === 0 ? (
-          <p className="text-xs text-neutral-400 py-4 text-center">
+          <p className="text-[13px] text-neutral-400 py-6 text-center border border-dashed border-gray-200 rounded-lg">
             Drag pins here to plan your day
           </p>
         ) : (
@@ -94,19 +105,14 @@ export default function DayContainer({ dayNumber, pins }: DayContainerProps) {
                 <motion.div
                   key={pin.itinerary_item_id}
                   layout
-                  initial={{ opacity: 0, scale: 0.95 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.95 }}
+                  initial={{ opacity: 0, y: -8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 8, scale: 0.95 }}
                   transition={{ duration: 0.2, layout: { duration: 0.25 } }}
                 >
-                  <SortablePlannedPinCard pin={pin} />
+                  <TimelineCard pin={pin} />
                   {index < pins.length - 1 && (
-                    <BridgeElement
-                      distance={segments[index]?.distance ?? ''}
-                      duration={segments[index]?.duration ?? ''}
-                      mode={segments[index]?.mode ?? 'driving'}
-                      isLoading={isLoading}
-                    />
+                    <BridgeElement />
                   )}
                 </motion.div>
               ))}

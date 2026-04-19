@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { extractRegion, groupPinsByRegion, filterPins } from '../SavedLibrary';
+import { extractCity, groupPinsByCity, filterPins } from '../LibraryPane';
 import type { Pin } from '@/types';
 
 function makePin(overrides: Partial<Pin> = {}): Pin {
@@ -16,62 +16,66 @@ function makePin(overrides: Partial<Pin> = {}): Pin {
   };
 }
 
-describe('extractRegion', () => {
-  it('returns last comma-separated segment', () => {
-    expect(extractRegion('123 Main St, Tokyo, Japan')).toBe('Japan');
+describe('extractCity', () => {
+  it('returns second-to-last comma-separated segment as city', () => {
+    expect(extractCity('123 Main St, Tokyo, Japan')).toBe('Tokyo');
   });
 
-  it('returns the whole string when no commas', () => {
-    expect(extractRegion('Japan')).toBe('Japan');
+  it('returns the whole string when no commas (single segment)', () => {
+    expect(extractCity('Japan')).toBe('Japan');
   });
 
   it('returns "Unknown Location" for undefined address', () => {
-    expect(extractRegion(undefined)).toBe('Unknown Location');
+    expect(extractCity(undefined)).toBe('Unknown Location');
   });
 
   it('returns "Unknown Location" for empty string', () => {
-    expect(extractRegion('')).toBe('Unknown Location');
+    expect(extractCity('')).toBe('Unknown Location');
   });
 
   it('returns "Unknown Location" for whitespace-only string', () => {
-    expect(extractRegion('   ')).toBe('Unknown Location');
+    expect(extractCity('   ')).toBe('Unknown Location');
   });
 
   it('trims whitespace from the segment', () => {
-    expect(extractRegion('Street,  Indonesia  ')).toBe('Indonesia');
+    expect(extractCity('Street,  Bali  , Indonesia')).toBe('Bali');
+  });
+
+  it('returns first segment when only two segments', () => {
+    expect(extractCity('Tokyo, Japan')).toBe('Tokyo');
   });
 });
 
-describe('groupPinsByRegion', () => {
-  it('groups pins by their derived region', () => {
+describe('groupPinsByCity', () => {
+  it('groups pins by their derived city', () => {
     const pins = [
       makePin({ id: '1', address: 'Shibuya, Tokyo, Japan' }),
       makePin({ id: '2', address: 'Shinjuku, Tokyo, Japan' }),
       makePin({ id: '3', address: 'Ubud, Bali, Indonesia' }),
     ];
-    const groups = groupPinsByRegion(pins);
-    expect(Object.keys(groups).sort()).toEqual(['Indonesia', 'Japan']);
-    expect(groups['Japan']).toHaveLength(2);
-    expect(groups['Indonesia']).toHaveLength(1);
+    const groups = groupPinsByCity(pins);
+    expect(Object.keys(groups).sort()).toEqual(['Bali', 'Tokyo']);
+    expect(groups['Tokyo']).toHaveLength(2);
+    expect(groups['Bali']).toHaveLength(1);
   });
 
   it('places pins without address in "Unknown Location"', () => {
     const pins = [makePin({ id: '1' })];
-    const groups = groupPinsByRegion(pins);
+    const groups = groupPinsByCity(pins);
     expect(groups['Unknown Location']).toHaveLength(1);
   });
 
   it('returns empty object for empty array', () => {
-    expect(groupPinsByRegion([])).toEqual({});
+    expect(groupPinsByCity([])).toEqual({});
   });
 
   it('every pin appears in exactly one group', () => {
     const pins = [
-      makePin({ id: '1', address: 'A, Japan' }),
-      makePin({ id: '2', address: 'B, Japan' }),
-      makePin({ id: '3', address: 'C, France' }),
+      makePin({ id: '1', address: 'A, Tokyo, Japan' }),
+      makePin({ id: '2', address: 'B, Tokyo, Japan' }),
+      makePin({ id: '3', address: 'C, Paris, France' }),
     ];
-    const groups = groupPinsByRegion(pins);
+    const groups = groupPinsByCity(pins);
     const total = Object.values(groups).reduce((sum, arr) => sum + arr.length, 0);
     expect(total).toBe(pins.length);
   });
@@ -79,7 +83,7 @@ describe('groupPinsByRegion', () => {
 
 describe('filterPins', () => {
   const pins = [
-    makePin({ id: '1', title: 'Eiffel Tower', address: 'Paris, France' }),
+    makePin({ id: '1', title: 'Eiffel Tower', address: 'Champ de Mars, Paris, France' }),
     makePin({ id: '2', title: 'Tokyo Tower', address: 'Minato, Tokyo, Japan' }),
     makePin({ id: '3', title: 'Bali Beach', address: 'Kuta, Bali, Indonesia' }),
   ];
@@ -95,8 +99,8 @@ describe('filterPins', () => {
     expect(result.map((p) => p.id).sort()).toEqual(['1', '2']);
   });
 
-  it('filters by address (case-insensitive)', () => {
-    const result = filterPins(pins, 'japan');
+  it('filters by city name (case-insensitive)', () => {
+    const result = filterPins(pins, 'tokyo');
     expect(result).toHaveLength(1);
     expect(result[0].id).toBe('2');
   });

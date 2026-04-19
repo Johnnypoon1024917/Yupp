@@ -17,28 +17,27 @@ export default function TripTimeline({ className }: TripTimelineProps) {
     .sort((a, b) => a - b);
 
   return (
-    <div className={`flex flex-col ${className ?? ''}`}>
-      {/* Scrollable day list */}
-      <div className="flex-1 overflow-y-auto p-3 space-y-4">
-        {dayNumbers.length === 0 ? (
-          <p className="text-sm text-neutral-400 text-center py-8">
-            No days yet — add one to start planning
-          </p>
-        ) : (
-          dayNumbers.map((day) => (
+    <div className={className ?? ''}>
+      {dayNumbers.length === 0 ? (
+        <p className="text-[13px] text-neutral-400 text-center py-12">
+          No days yet — add one to start planning
+        </p>
+      ) : (
+        <div className="space-y-6">
+          {dayNumbers.map((day) => (
             <DayContainer key={day} dayNumber={day} pins={dayItems[day] ?? []} />
-          ))
-        )}
+          ))}
+        </div>
+      )}
 
-        {/* Add Day button */}
-        <button
-          onClick={addDay}
-          className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded-lg border border-dashed border-border text-sm text-neutral-500 hover:border-accent hover:text-accent transition-colors"
-        >
-          <Plus className="w-4 h-4" />
-          Add Day
-        </button>
-      </div>
+      {/* Add Day button */}
+      <button
+        onClick={addDay}
+        className="w-full flex items-center justify-center gap-1.5 py-3 mt-6 rounded-lg border border-dashed border-gray-300 text-[13px] font-bold tracking-tight text-neutral-500 hover:border-accent hover:text-accent transition-colors"
+      >
+        <Plus className="w-4 h-4" />
+        Add Day
+      </button>
     </div>
   );
 }

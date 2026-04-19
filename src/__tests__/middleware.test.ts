@@ -71,6 +71,7 @@ describe('middleware', () => {
       const { middleware } = await import('@/middleware');
 
       const mockRequest = {
+        nextUrl: { pathname: '/' },
         cookies: {
           getAll: vi.fn().mockReturnValue([]),
           set: vi.fn(),
