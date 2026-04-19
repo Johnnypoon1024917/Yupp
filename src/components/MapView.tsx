@@ -5,7 +5,6 @@ import maplibregl from 'maplibre-gl';
 import useTravelPinStore from '@/store/useTravelPinStore';
 import { useHydrated } from '@/hooks/useHydrated';
 import { createVisualMarkerElement } from '@/components/VisualMarker';
-import { showMarkerPopover } from '@/components/MarkerPopover';
 import type { Pin } from '@/types';
 
 export interface MapViewRef {
@@ -49,7 +48,16 @@ const MapView = forwardRef<MapViewRef, MapViewProps>(function MapView({ classNam
       pin,
       onClick: (clickedPin) => {
         if (map) {
-          showMarkerPopover(map, clickedPin);
+          map.flyTo({
+            center: [clickedPin.longitude, clickedPin.latitude],
+            pitch: 45,
+            zoom: 12,
+            speed: 1.2,
+          });
+          map.once('moveend', () => {
+            map.easeTo({ pitch: 0, duration: 1000 });
+          });
+          useTravelPinStore.getState().setActivePinId(clickedPin.id);
         }
       },
     });

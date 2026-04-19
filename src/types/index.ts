@@ -7,6 +7,9 @@ export interface Pin {
   longitude: number;     // From geocoder
   collectionId: string;  // Defaults to "unorganized"
   createdAt: string;     // ISO 8601 timestamp
+  placeId?: string;      // Google Places unique identifier
+  primaryType?: string;  // Place type (e.g., "restaurant")
+  rating?: number;       // Google rating (1.0–5.0)
 }
 
 export interface Collection {

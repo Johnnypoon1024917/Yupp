@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, forwardRef, useImperativeHandle } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Sparkles } from 'lucide-react';
 import { scrapeUrl } from '@/actions/scrapeUrl';
@@ -9,6 +9,10 @@ import useTravelPinStore from '@/store/useTravelPinStore';
 import type { Pin } from '@/types';
 
 export type MagicBarState = 'idle' | 'processing' | 'needs_input' | 'error' | 'success';
+
+export interface MagicBarRef {
+  focus: () => void;
+}
 
 export interface MagicBarProps {
   onPinCreated?: (pin: Pin) => void;
@@ -26,7 +30,7 @@ export function isValidUrl(input: string): boolean {
   }
 }
 
-export default function MagicBar({ onPinCreated }: MagicBarProps) {
+const MagicBar = forwardRef<MagicBarRef, MagicBarProps>(function MagicBar({ onPinCreated }, ref) {
   const [state, setState] = useState<MagicBarState>('idle');
   const [inputValue, setInputValue] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
@@ -36,6 +40,12 @@ export default function MagicBar({ onPinCreated }: MagicBarProps) {
   const [sourceUrl, setSourceUrl] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
   const addPin = useTravelPinStore((s) => s.addPin);
+
+  useImperativeHandle(ref, () => ({
+    focus: () => {
+      inputRef.current?.focus();
+    },
+  }), []);
 
   const resetToIdle = useCallback(() => {
     setState('idle');
@@ -87,6 +97,9 @@ export default function MagicBar({ onPinCreated }: MagicBarProps) {
               sourceUrl: scrapeResult.sourceUrl,
               latitude: geocodeResult.lat,
               longitude: geocodeResult.lng,
+              placeId: geocodeResult.enrichedData.placeId,
+              primaryType: geocodeResult.enrichedData.primaryType,
+              rating: geocodeResult.enrichedData.rating,
             });
             onPinCreated?.(newPin);
             setState('success');
@@ -135,6 +148,9 @@ export default function MagicBar({ onPinCreated }: MagicBarProps) {
             sourceUrl,
             latitude: geocodeResult.lat,
             longitude: geocodeResult.lng,
+            placeId: geocodeResult.enrichedData.placeId,
+            primaryType: geocodeResult.enrichedData.primaryType,
+            rating: geocodeResult.enrichedData.rating,
           });
           onPinCreated?.(newPin);
           setState('success');
@@ -166,13 +182,13 @@ export default function MagicBar({ onPinCreated }: MagicBarProps) {
   const isProcessing = state === 'processing';
 
   return (
-    <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[40] flex flex-col items-center w-[90vw] max-w-[480px]">
+    <div className="fixed top-12 left-1/2 -translate-x-1/2 z-[40] flex flex-col items-center w-[90vw] max-w-[480px]">
       <motion.form
         onSubmit={handleSubmit}
         layout
         animate={{ width: isFocused ? '100%' : 'min(400px, 100%)' }}
         transition={{ type: 'spring', stiffness: 400, damping: 30 }}
-        className="relative flex items-center w-full rounded-full border border-border bg-surface/80 backdrop-blur-md shadow-sm px-4 py-2"
+        className="relative flex items-center w-full rounded-full border border-border bg-surface/80 backdrop-blur-md shadow-xl px-4 py-2"
       >
         {/* Sparkle icon — visible during processing */}
         <AnimatePresence>
@@ -307,4 +323,6 @@ export default function MagicBar({ onPinCreated }: MagicBarProps) {
       </AnimatePresence>
     </div>
   );
-}
+});
+
+export default MagicBar;

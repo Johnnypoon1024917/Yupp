@@ -9,6 +9,7 @@ export interface TravelPinStore {
   collections: Collection[];
   activeCollectionId: string | null;
   isDrawerOpen: boolean;
+  activePinId: string | null;
 
   // Actions
   addPin: (pin: Omit<Pin, 'id' | 'createdAt' | 'collectionId'>) => Pin;
@@ -18,6 +19,7 @@ export interface TravelPinStore {
   removeCollection: (collectionId: string) => void;
   setActiveCollection: (collectionId: string | null) => void;
   toggleDrawer: () => void;
+  setActivePinId: (pinId: string | null) => void;
 }
 
 const DEFAULT_COLLECTION: Collection = {
@@ -33,6 +35,7 @@ const useTravelPinStore = create<TravelPinStore>()(
       collections: [DEFAULT_COLLECTION],
       activeCollectionId: null,
       isDrawerOpen: false,
+      activePinId: null,
 
       addPin: (pinData) => {
         const newPin: Pin = {
@@ -89,6 +92,10 @@ const useTravelPinStore = create<TravelPinStore>()(
 
       toggleDrawer: () => {
         set((state) => ({ isDrawerOpen: !state.isDrawerOpen }));
+      },
+
+      setActivePinId: (pinId) => {
+        set({ activePinId: pinId });
       },
     }),
     {
