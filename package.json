@@ -1,0 +1,34 @@
+{
+  "name": "travel-pin-board",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "cheerio": "^1.2.0",
+    "framer-motion": "^12.38.0",
+    "lucide-react": "^1.8.0",
+    "maplibre-gl": "^5.23.0",
+    "next": "14.2.35",
+    "react": "^18",
+    "react-dom": "^18",
+    "uuid": "^13.0.0",
+    "vaul": "^1.1.2",
+    "zustand": "^5.0.12"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "@types/react": "^18",
+    "@types/react-dom": "^18",
+    "@types/uuid": "^10.0.0",
+    "eslint": "^8",
+    "eslint-config-next": "14.2.35",
+    "postcss": "^8",
+    "tailwindcss": "^3.4.1",
+    "typescript": "^5"
+  }
+}
