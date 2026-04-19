@@ -3,13 +3,15 @@
 import { useState, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Sparkles } from 'lucide-react';
+import { scrapeUrl } from '@/actions/scrapeUrl';
+import { geocodeLocation } from '@/actions/geocodeLocation';
+import useTravelPinStore from '@/store/useTravelPinStore';
 import type { Pin } from '@/types';
 
 export type MagicBarState = 'idle' | 'processing' | 'error' | 'success';
 
 export interface MagicBarProps {
   onPinCreated?: (pin: Pin) => void;
-  onSubmit?: (url: string) => Promise<void>;
 }
 
 /**
@@ -24,12 +26,13 @@ export function isValidUrl(input: string): boolean {
   }
 }
 
-export default function MagicBar({ onSubmit }: MagicBarProps) {
+export default function MagicBar({ onPinCreated }: MagicBarProps) {
   const [state, setState] = useState<MagicBarState>('idle');
   const [inputValue, setInputValue] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
   const [isFocused, setIsFocused] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const addPin = useTravelPinStore((s) => s.addPin);
 
   const resetToIdle = useCallback(() => {
     setState('idle');
@@ -55,9 +58,37 @@ export default function MagicBar({ onSubmit }: MagicBarProps) {
       setState('processing');
 
       try {
-        if (onSubmit) {
-          await onSubmit(trimmed);
+        // Step 1: Scrape the URL
+        const scrapeResult = await scrapeUrl(trimmed);
+        if (!scrapeResult.success) {
+          setState('error');
+          setErrorMessage(scrapeResult.error);
+          return;
         }
+
+        // Step 2: Geocode the location
+        const geocodeResult = await geocodeLocation({
+          location: scrapeResult.location,
+          contextualHints: scrapeResult.contextualHints,
+        });
+        if (!geocodeResult.success) {
+          setState('error');
+          setErrorMessage(geocodeResult.error);
+          return;
+        }
+
+        // Step 3: Create pin in the store (no partial pin — only on full success)
+        const newPin = addPin({
+          title: scrapeResult.title,
+          imageUrl: scrapeResult.imageUrl ?? '/placeholder-pin.svg',
+          sourceUrl: scrapeResult.sourceUrl,
+          latitude: geocodeResult.lat,
+          longitude: geocodeResult.lng,
+        });
+
+        // Notify parent if callback provided
+        onPinCreated?.(newPin);
+
         // Success — clear input and briefly show success state
         setState('success');
         setInputValue('');
@@ -71,7 +102,7 @@ export default function MagicBar({ onSubmit }: MagicBarProps) {
         );
       }
     },
-    [inputValue, onSubmit, resetToIdle]
+    [inputValue, addPin, onPinCreated, resetToIdle]
   );
 
   const handleChange = useCallback(
@@ -88,13 +119,13 @@ export default function MagicBar({ onSubmit }: MagicBarProps) {
   const isProcessing = state === 'processing';
 
   return (
-    <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[40] flex flex-col items-center">
+    <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[40] flex flex-col items-center w-[90vw] max-w-[480px]">
       <motion.form
         onSubmit={handleSubmit}
         layout
-        animate={{ width: isFocused ? 480 : 400 }}
+        animate={{ width: isFocused ? '100%' : 'min(400px, 100%)' }}
         transition={{ type: 'spring', stiffness: 400, damping: 30 }}
-        className="relative flex items-center w-full max-w-[90vw] rounded-full border border-border bg-surface/80 backdrop-blur-md shadow-sm px-4 py-2"
+        className="relative flex items-center w-full rounded-full border border-border bg-surface/80 backdrop-blur-md shadow-sm px-4 py-2"
       >
         {/* Sparkle icon — visible during processing */}
         <AnimatePresence>

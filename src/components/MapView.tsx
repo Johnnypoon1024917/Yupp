@@ -32,8 +32,34 @@ const MapView = forwardRef<MapViewRef, MapViewProps>(function MapView({ classNam
   const mapRef = useRef<maplibregl.Map | null>(null);
   const markersRef = useRef<Map<string, maplibregl.Marker>>(new Map());
   const prevPinCountRef = useRef<number>(0);
+  /** Pin IDs whose markers are deferred until after flyTo completes */
+  const pendingMarkerPinIdsRef = useRef<Set<string>>(new Set());
 
   const pins = useHydrated(() => useTravelPinStore.getState().pins, []);
+
+  /**
+   * Add a single marker to the map for the given pin.
+   * Extracted so it can be called both during normal sync and after flyTo.
+   */
+  const addMarkerForPin = useCallback((pin: Pin) => {
+    const map = mapRef.current;
+    if (!map || markersRef.current.has(pin.id)) return;
+
+    const element = createVisualMarkerElement({
+      pin,
+      onClick: (clickedPin) => {
+        if (map) {
+          showMarkerPopover(map, clickedPin);
+        }
+      },
+    });
+
+    const marker = new maplibregl.Marker({ element })
+      .setLngLat([pin.longitude, pin.latitude])
+      .addTo(map);
+
+    markersRef.current.set(pin.id, marker);
+  }, []);
 
   /** Fly the camera to a pin location with cinematic pitch tilt */
   const flyToPin = useCallback((lat: number, lng: number) => {
@@ -47,11 +73,21 @@ const MapView = forwardRef<MapViewRef, MapViewProps>(function MapView({ classNam
       speed: 1.2,
     });
 
-    // After the fly animation completes, ease pitch back to 0
+    // After the fly animation completes, render pending markers then ease pitch back to 0
     map.once('moveend', () => {
+      // Render any markers that were deferred until flyTo completed
+      const currentPins = useTravelPinStore.getState().pins;
+      pendingMarkerPinIdsRef.current.forEach((pinId) => {
+        const pin = currentPins.find((p) => p.id === pinId);
+        if (pin) {
+          addMarkerForPin(pin);
+        }
+      });
+      pendingMarkerPinIdsRef.current.clear();
+
       map.easeTo({ pitch: 0, duration: 1000 });
     });
-  }, []);
+  }, [addMarkerForPin]);
 
   /** Tell MapLibre to recalculate its container size (e.g., after a CSS transition) */
   const resize = useCallback(() => {
@@ -110,27 +146,14 @@ const MapView = forwardRef<MapViewRef, MapViewProps>(function MapView({ classNam
         }
       });
 
-      // Add markers for new pins
+      // Add markers for new pins (skip those deferred until flyTo completes)
       for (const pin of currentPins) {
-        if (!markersRef.current.has(pin.id)) {
-          const element = createVisualMarkerElement({
-            pin,
-            onClick: (clickedPin) => {
-              if (map) {
-                showMarkerPopover(map, clickedPin);
-              }
-            },
-          });
-
-          const marker = new maplibregl.Marker({ element })
-            .setLngLat([pin.longitude, pin.latitude])
-            .addTo(map);
-
-          markersRef.current.set(pin.id, marker);
+        if (!markersRef.current.has(pin.id) && !pendingMarkerPinIdsRef.current.has(pin.id)) {
+          addMarkerForPin(pin);
         }
       }
     },
-    [],
+    [addMarkerForPin],
   );
 
   // React to pin changes
@@ -151,9 +174,10 @@ const MapView = forwardRef<MapViewRef, MapViewProps>(function MapView({ classNam
     const prevCount = prevPinCountRef.current;
     const currentCount = pins.length;
 
-    if (currentCount > prevCount && prevCount > 0) {
-      // A new pin was added — fly to the last pin's coordinates
+    if (currentCount > prevCount) {
+      // A new pin was added — defer its marker and fly to its coordinates
       const lastPin = pins[currentCount - 1];
+      pendingMarkerPinIdsRef.current.add(lastPin.id);
       flyToPin(lastPin.latitude, lastPin.longitude);
     }
 

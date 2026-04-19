@@ -2,6 +2,7 @@
 
 import { useRef } from 'react';
 import MapView from '@/components/MapView';
+import MagicBar from '@/components/MagicBar';
 import CollectionDrawer from '@/components/CollectionDrawer';
 import useTravelPinStore from '@/store/useTravelPinStore';
 import type { MapViewRef } from '@/components/MapView';
@@ -12,9 +13,12 @@ export default function Home() {
   const mapViewRef = useRef<MapViewRef>(null);
 
   return (
-    <div className="relative w-screen h-screen overflow-hidden">
+    <div className="relative w-screen h-screen h-[100dvh] overflow-hidden">
       {/* Collection Drawer */}
       <CollectionDrawer isOpen={isDrawerOpen} onToggle={toggleDrawer} />
+
+      {/* MagicBar floating input */}
+      <MagicBar />
 
       {/* Map container — shifts right on desktop (≥768px) when drawer is open.
           On mobile the drawer is a bottom-sheet overlay so the map stays full-width. */}

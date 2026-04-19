@@ -144,19 +144,19 @@ Implement a luxury minimalist travel pin board web application using Next.js 14 
 - [x] 10. Checkpoint - Verify all UI components render correctly
   - Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 11. Wire end-to-end pin creation flow
-  - [ ] 11.1 Connect MagicBar to scrapeUrl and geocodeLocation server actions
+- [x] 11. Wire end-to-end pin creation flow
+  - [x] 11.1 Connect MagicBar to scrapeUrl and geocodeLocation server actions
     - On URL submit: call scrapeUrl → on success call geocodeLocation → create Pin in store
     - Handle errors at each step: display descriptive error in MagicBar, do not create partial pin
     - _Requirements: 9.1, 9.3_
-  - [ ] 11.2 Wire pin creation to map animation and marker rendering
+  - [x] 11.2 Wire pin creation to map animation and marker rendering
     - After pin is added to store, trigger MapView flyTo with cinematic pitch
     - Render VisualMarker with pop-in animation within 2 seconds of flyTo completing
     - Ensure continuous visual feedback in MagicBar throughout the flow
     - _Requirements: 9.1, 9.2, 9.4_
 
-- [ ] 12. Implement responsive layout and final polish
-  - [ ] 12.1 Ensure responsive behavior across viewports
+- [x] 12. Implement responsive layout and final polish
+  - [x] 12.1 Ensure responsive behavior across viewports
     - Map_View occupies full viewport on all screen sizes
     - MagicBar remains centered and usable at 320px width
     - Visual_Markers maintain 48×48px size across all viewports
@@ -168,7 +168,7 @@ Implement a luxury minimalist travel pin board web application using Next.js 14 
     - Test MagicBar state transitions during flow
     - _Requirements: 9.1, 9.2, 9.3, 9.4_
 
-- [ ] 13. Final checkpoint - Ensure all tests pass
+- [x] 13. Final checkpoint - Ensure all tests pass
   - Ensure all tests pass, ask the user if questions arise.
 
 ## Notes
