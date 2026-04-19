@@ -19,7 +19,7 @@ export default function PlaceSheet({ pin, onDismiss }: PlaceSheetProps) {
       <Drawer.Portal>
         <Drawer.Overlay className="fixed inset-0 z-[100] bg-black/40" />
         <Drawer.Content
-          className="fixed inset-x-0 bottom-0 z-[100] mx-auto w-full max-w-md flex flex-col bg-white rounded-t-[36px] shadow-[0_-10px_40px_rgba(0,0,0,0.1)] outline-none overflow-hidden"
+          className="fixed inset-x-0 bottom-0 z-[100] mx-auto w-full max-w-[448px] flex flex-col bg-white rounded-t-[32px] shadow-[0_-12px_48px_rgba(0,0,0,0.12)] outline-none overflow-hidden"
           aria-label="Place details"
         >
           <Drawer.Title className="sr-only">
@@ -29,36 +29,47 @@ export default function PlaceSheet({ pin, onDismiss }: PlaceSheetProps) {
           {pin && (
             <div className="relative flex flex-col overflow-y-auto max-h-[85vh]">
               {/* Drag handle — floating over the image */}
-              <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10 h-1.5 w-12 rounded-full bg-white/50 backdrop-blur-md" />
+              <div className="absolute top-[12px] left-1/2 -translate-x-1/2 z-10 h-[5px] w-[48px] rounded-[100px] bg-white/60 backdrop-blur-md" />
 
-              {/* Hero image — flush to top, left, right edges */}
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={pin.imageUrl}
-                alt={pin.title}
-                className="w-full aspect-[4/3] sm:aspect-video object-cover"
-              />
+              {/* Hero image — aspect-ratio-safe container with blurred backdrop */}
+              <div className="w-full h-[320px] bg-[#F4F4F5] flex items-center justify-center overflow-hidden relative">
+                {/* Blurred background layer */}
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={pin.imageUrl}
+                  className="absolute inset-0 w-full h-full object-cover blur-xl opacity-50 scale-110"
+                  aria-hidden="true"
+                  alt=""
+                />
+                {/* Actual uncropped image */}
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={pin.imageUrl}
+                  alt={pin.title}
+                  className="relative w-full h-full object-contain drop-shadow-md"
+                />
+              </div>
 
               {/* Content */}
-              <div className="px-6 py-8 flex flex-col gap-4">
-                <h2 className="text-[28px] leading-[1.1] sm:text-3xl font-bold tracking-tighter text-black text-balance">
+              <div className="px-[24px] pt-[24px] pb-[32px] flex flex-col gap-[16px]">
+                <h2 className="text-[22px] leading-[26px] md:text-[24px] md:leading-[28px] font-bold tracking-[-0.4px] text-[#111111] text-balance">
                   {pin.title}
                 </h2>
 
-                <div className="flex flex-wrap items-center gap-2 mt-1">
+                <div className="flex flex-wrap items-center gap-[8px]">
                   {pin.primaryType && (
-                    <span className="inline-flex items-center px-3.5 py-1.5 bg-gray-100 text-gray-900 text-xs sm:text-sm font-semibold rounded-full tracking-wide">
+                    <span className="inline-flex items-center px-[12px] py-[6px] bg-[#F4F4F5] text-[#3F3F46] text-[13px] leading-[16px] font-semibold rounded-[100px] tracking-[-0.1px]">
                       {pin.primaryType}
                     </span>
                   )}
                   {pin.rating != null && (
-                    <span className="inline-flex items-center px-3.5 py-1.5 bg-gray-100 text-gray-900 text-xs sm:text-sm font-semibold rounded-full tracking-wide">
+                    <span className="inline-flex items-center px-[12px] py-[6px] bg-[#F4F4F5] text-[#3F3F46] text-[13px] leading-[16px] font-semibold rounded-[100px] tracking-[-0.1px]">
                       ⭐ {pin.rating.toFixed(1)}
                     </span>
                   )}
                 </div>
 
-                <p className="text-sm sm:text-base text-gray-500 leading-relaxed tracking-normal line-clamp-3">
+                <p className="text-[15px] leading-[24px] text-[#71717A] tracking-[0.1px] line-clamp-3">
                   Saved from {new URL(pin.sourceUrl).hostname}
                 </p>
 
@@ -66,7 +77,7 @@ export default function PlaceSheet({ pin, onDismiss }: PlaceSheetProps) {
                   href={pin.sourceUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="mt-4 flex items-center justify-center w-full bg-black text-white text-base font-semibold rounded-[20px] py-4 transition-transform active:scale-[0.98]"
+                  className="mt-[8px] flex items-center justify-center w-full h-[56px] bg-[#111111] text-white text-[16px] leading-[20px] font-semibold rounded-[28px] transition-transform active:scale-[0.97]"
                 >
                   View Source
                 </a>
