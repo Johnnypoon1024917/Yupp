@@ -22,9 +22,9 @@ function injectStyles(): void {
   70% { transform: scale(1.15); }
   100% { transform: scale(1); }
 }
-.visual-marker-hover:hover,
-.visual-marker-hover:active {
-  transform: scale(1.1) !important;
+.visual-marker-inner:hover,
+.visual-marker-inner:active {
+  transform: scale(1.1);
 }
 `;
   document.head.appendChild(style);
@@ -42,21 +42,29 @@ export function createVisualMarkerElement(options: VisualMarkerOptions): HTMLDiv
 
   injectStyles();
 
-  // Container
-  const container = document.createElement('div');
-  container.className = 'visual-marker-hover';
-  Object.assign(container.style, {
+  // Outer shell — MapLibre controls this element's transform for positioning.
+  // CRITICAL: No transition, transform, or box-shadow on this element.
+  const outer = document.createElement('div');
+  Object.assign(outer.style, {
     width: '48px',
     height: '48px',
     position: 'relative',
     zIndex: '50',
+    cursor: 'pointer',
+  } satisfies Partial<CSSStyleDeclaration>);
+
+  // Inner div — carries all visual styling and hover animation.
+  // MapLibre never touches this element, so transitions are safe here.
+  const inner = document.createElement('div');
+  inner.className = 'visual-marker-inner';
+  Object.assign(inner.style, {
+    width: '100%',
+    height: '100%',
     borderRadius: '50%',
     backgroundColor: '#6366F1',
     border: '2.5px solid #FFFFFF',
-    boxShadow: '0 8px 16px rgba(0,0,0,0.2)',
+    boxShadow: '0 6px 12px rgba(0,0,0,0.15)',
     overflow: 'hidden',
-    cursor: 'pointer',
-    transformOrigin: 'center bottom',
     transition: 'transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1)',
     animation: `${ANIMATION_NAME} 400ms ease-out forwards`,
   } satisfies Partial<CSSStyleDeclaration>);
@@ -76,30 +84,31 @@ export function createVisualMarkerElement(options: VisualMarkerOptions): HTMLDiv
 
   // Fallback on image error
   img.onerror = () => {
-    container.removeChild(img);
-    showFallback(container);
+    inner.removeChild(img);
+    showFallback(inner);
   };
 
-  container.appendChild(img);
+  inner.appendChild(img);
+  outer.appendChild(inner);
 
-  // Click handler
-  container.addEventListener('click', (e) => {
+  // Click handler on outer so the full hit area works
+  outer.addEventListener('click', (e) => {
     e.stopPropagation();
     onClick(pin);
   });
 
-  return container;
+  return outer;
 }
 
 /**
  * Renders the accent-colored fallback with a map-pin icon.
  */
-function showFallback(container: HTMLDivElement): void {
-  Object.assign(container.style, {
+function showFallback(inner: HTMLDivElement): void {
+  Object.assign(inner.style, {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
   } satisfies Partial<CSSStyleDeclaration>);
 
-  container.innerHTML = MAP_PIN_SVG;
+  inner.innerHTML = MAP_PIN_SVG;
 }

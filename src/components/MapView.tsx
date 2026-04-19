@@ -62,7 +62,7 @@ const MapView = forwardRef<MapViewRef, MapViewProps>(function MapView({ classNam
       },
     });
 
-    const marker = new maplibregl.Marker({ element })
+    const marker = new maplibregl.Marker({ element, anchor: 'center' })
       .setLngLat([pin.longitude, pin.latitude])
       .addTo(map);
 

@@ -182,7 +182,7 @@ const MagicBar = forwardRef<MagicBarRef, MagicBarProps>(function MagicBar({ onPi
   const isProcessing = state === 'processing';
 
   return (
-    <div className="fixed top-[max(1.5rem,env(safe-area-inset-top))] left-1/2 -translate-x-1/2 z-[40] flex flex-col items-center w-[90%] max-w-[400px]">
+    <div className="fixed top-[max(1rem,env(safe-area-inset-top))] left-1/2 -translate-x-1/2 z-[40] flex flex-col items-center w-[90%] max-w-[400px]">
       <motion.form
         onSubmit={handleSubmit}
         layout
@@ -238,7 +238,7 @@ const MagicBar = forwardRef<MagicBarRef, MagicBarProps>(function MagicBar({ onPi
             aria-label="Paste a URL to create a travel pin"
             aria-invalid={state === 'error'}
             aria-describedby={state === 'error' ? 'magicbar-error' : undefined}
-            className="flex-1 bg-transparent outline-none text-sm text-primary placeholder:text-gray-400"
+            className="flex-1 bg-transparent outline-none text-sm sm:text-base text-primary placeholder:text-gray-400"
           />
         )}
 

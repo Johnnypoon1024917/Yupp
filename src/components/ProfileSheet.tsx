@@ -40,10 +40,10 @@ export default function ProfileSheet({ open, onOpenChange }: ProfileSheetProps) 
       <Drawer.Portal>
         <Drawer.Overlay className="fixed inset-0 z-[100] bg-black/40" />
         <Drawer.Content
-          className="fixed inset-x-0 bottom-0 z-[100] mx-auto max-w-md flex flex-col bg-surface rounded-t-[32px] shadow-[0_-8px_40px_rgba(0,0,0,0.12)] outline-none"
+          className="fixed inset-x-0 bottom-0 z-[100] mx-auto w-full max-w-md flex flex-col bg-surface rounded-t-[32px] shadow-[0_-8px_40px_rgba(0,0,0,0.12)] outline-none"
           aria-label="Profile"
         >
-          <div className="mx-auto mt-4 mb-5 h-1.5 w-12 rounded-full bg-gray-300 flex-shrink-0" />
+          <div className="mx-auto mt-4 mb-4 h-1.5 w-12 rounded-full bg-gray-300 flex-shrink-0" />
           <Drawer.Title className="sr-only">Profile</Drawer.Title>
 
           <div className="max-h-[85vh] overflow-y-auto px-6 py-1 pb-6 space-y-6">
