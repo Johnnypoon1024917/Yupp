@@ -48,3 +48,27 @@ export type GeocodeResult =
   | { status: 'success'; lat: number; lng: number; displayName: string; address: string; enrichedData: EnrichedData }
   | { status: 'needs_user_input'; partialData: { title: string; imageUrl: string | null } }
   | { status: 'error'; error: string };
+
+export interface Itinerary {
+  id: string;
+  userId: string;
+  name: string;
+  tripDate: string | null;
+  createdAt: string;
+}
+
+export interface ItineraryItem {
+  id: string;
+  itineraryId: string;
+  pinId: string;
+  dayNumber: number;
+  sortOrder: number;
+  createdAt: string;
+}
+
+/** A Pin enriched with its placement in an itinerary day. */
+export type PlannedPin = Pin & {
+  day_number: number;
+  sort_order: number;
+  itinerary_item_id: string;
+};

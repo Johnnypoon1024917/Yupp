@@ -31,7 +31,7 @@ const uniqueHintArb = fc.stringMatching(/^[a-z]{4,10}$/);
 // ===================================================================
 
 describe('Feature: discovery-experience-polish, Property 1: Contextual hint matching', () => {
-  it('selects the place whose formattedAddress contains the hint (case-insensitive)', () => {
+  it('selects the place whose formattedAddress contains the hint (case-insensitive)', async () => {
     const arb = fc.record({
       // Generate 1–4 "other" addresses that will NOT contain the hint
       otherAddresses: fc.array(safeAddress, { minLength: 1, maxLength: 4 }),
@@ -41,8 +41,8 @@ describe('Feature: discovery-experience-polish, Property 1: Contextual hint matc
       insertIndex: fc.nat(),
     });
 
-    fc.assert(
-      fc.property(arb, ({ otherAddresses, hint, insertIndex }) => {
+    await fc.assert(
+      fc.asyncProperty(arb, async ({ otherAddresses, hint, insertIndex }) => {
         // Build the target address with the hint embedded (mixed case to test case-insensitivity)
         const targetAddress = `123 ${hint.toUpperCase()} Street, City`;
 
@@ -75,7 +75,7 @@ describe('Feature: discovery-experience-polish, Property 1: Contextual hint matc
         places.splice(idx, 0, targetPlace);
 
         // The hint is provided in lowercase — function should match case-insensitively
-        const result = pickProminentPlace(places, [hint.toLowerCase()]);
+        const result = await pickProminentPlace(places, [hint.toLowerCase()]);
 
         expect(result).not.toBeNull();
         expect(result!.id).toBe('target');
@@ -84,15 +84,15 @@ describe('Feature: discovery-experience-polish, Property 1: Contextual hint matc
     );
   });
 
-  it('falls through to non-hint selection when no hint matches any formattedAddress', () => {
+  it('falls through to non-hint selection when no hint matches any formattedAddress', async () => {
     const arb = fc.record({
       addresses: fc.array(safeAddress, { minLength: 2, maxLength: 5 }),
       // A hint guaranteed not to appear in any generated address
       noMatchHint: fc.constant('zzzzqqqq_nomatch'),
     });
 
-    fc.assert(
-      fc.property(arb, ({ addresses, noMatchHint }) => {
+    await fc.assert(
+      fc.asyncProperty(arb, async ({ addresses, noMatchHint }) => {
         const places = addresses.map((addr, i) =>
           makePlace({
             id: `place-${i}`,
@@ -103,7 +103,7 @@ describe('Feature: discovery-experience-polish, Property 1: Contextual hint matc
           }),
         );
 
-        const result = pickProminentPlace(places, [noMatchHint]);
+        const result = await pickProminentPlace(places, [noMatchHint]);
 
         // With no hint match, no high rating, and no ambiguity (different names/coords),
         // the function should fall through to default (first result) — NOT return the
@@ -142,9 +142,9 @@ describe('Feature: discovery-experience-polish, Property 2: Rating-based promine
     extraCount: fc.integer({ min: 1, max: 3 }),
   });
 
-  it('selects the first result when rating > 4.2 AND userRatingCount > 50', () => {
-    fc.assert(
-      fc.property(ratingArb, ({ rating, userRatingCount, extraCount }) => {
+  it('selects the first result when rating > 4.2 AND userRatingCount > 50', async () => {
+    await fc.assert(
+      fc.asyncProperty(ratingArb, async ({ rating, userRatingCount, extraCount }) => {
         // Only test the "both thresholds exceeded" case
         fc.pre(rating > 4.2 && userRatingCount > 50);
 
@@ -169,7 +169,7 @@ describe('Feature: discovery-experience-polish, Property 2: Rating-based promine
         const places = [first, ...others];
 
         // No contextual hints → hint step is skipped
-        const result = pickProminentPlace(places);
+        const result = await pickProminentPlace(places);
 
         expect(result).not.toBeNull();
         expect(result!.id).toBe('first');
@@ -178,9 +178,9 @@ describe('Feature: discovery-experience-polish, Property 2: Rating-based promine
     );
   });
 
-  it('does NOT select based on rating alone when either threshold is not met', () => {
-    fc.assert(
-      fc.property(ratingArb, ({ rating, userRatingCount, extraCount }) => {
+  it('does NOT select based on rating alone when either threshold is not met', async () => {
+    await fc.assert(
+      fc.asyncProperty(ratingArb, async ({ rating, userRatingCount, extraCount }) => {
         // Only test cases where at least one threshold is NOT exceeded
         fc.pre(rating <= 4.2 || userRatingCount <= 50);
 
@@ -205,7 +205,7 @@ describe('Feature: discovery-experience-polish, Property 2: Rating-based promine
         const places = [first, ...others];
 
         // No contextual hints → hint step is skipped
-        const result = pickProminentPlace(places);
+        const result = await pickProminentPlace(places);
 
         // The function should NOT have selected via the rating path.
         // With different names and distant coords, ambiguity won't trigger null,
@@ -229,7 +229,7 @@ describe('Feature: discovery-experience-polish, Property 2: Rating-based promine
         });
 
         const placesWithoutRating = [withoutRating, ...others];
-        const resultWithoutRating = pickProminentPlace(placesWithoutRating);
+        const resultWithoutRating = await pickProminentPlace(placesWithoutRating);
 
         // Both should produce the same outcome — proving rating wasn't the gate
         expect(result?.id).toBe(resultWithoutRating?.id);
@@ -266,9 +266,9 @@ describe('Feature: discovery-experience-polish, Property 3: Ambiguity detection'
     userRatingCount: fc.integer({ min: 0, max: 50 }),
   });
 
-  it('returns null when top two places share the same name and are geographically close', () => {
-    fc.assert(
-      fc.property(ambiguousArb, ({ baseName, lat1, lng1, latDelta, lngDelta, rating, userRatingCount }) => {
+  it('returns null when top two places share the same name and are geographically close', async () => {
+    await fc.assert(
+      fc.asyncProperty(ambiguousArb, async ({ baseName, lat1, lng1, latDelta, lngDelta, rating, userRatingCount }) => {
         const first = makePlace({
           id: 'place-a',
           displayName: { text: baseName.toLowerCase(), languageCode: 'en' },
@@ -286,7 +286,7 @@ describe('Feature: discovery-experience-polish, Property 3: Ambiguity detection'
         });
 
         // No contextual hints → hint step is skipped
-        const result = pickProminentPlace([first, second]);
+        const result = await pickProminentPlace([first, second]);
 
         expect(result).toBeNull();
       }),
@@ -294,7 +294,7 @@ describe('Feature: discovery-experience-polish, Property 3: Ambiguity detection'
     );
   });
 
-  it('returns non-null when names differ (no ambiguity)', () => {
+  it('returns non-null when names differ (no ambiguity)', async () => {
     const differentNamesArb = fc.record({
       name1: fc.stringMatching(/^[a-z]{4,10}$/),
       name2: fc.stringMatching(/^[a-z]{4,10}$/),
@@ -305,8 +305,8 @@ describe('Feature: discovery-experience-polish, Property 3: Ambiguity detection'
       userRatingCount: fc.integer({ min: 0, max: 50 }),
     });
 
-    fc.assert(
-      fc.property(differentNamesArb, ({ name1, name2, lat, lng, rating, userRatingCount }) => {
+    await fc.assert(
+      fc.asyncProperty(differentNamesArb, async ({ name1, name2, lat, lng, rating, userRatingCount }) => {
         // Ensure names are actually different (case-insensitive)
         fc.pre(name1.toLowerCase() !== name2.toLowerCase());
 
@@ -326,7 +326,7 @@ describe('Feature: discovery-experience-polish, Property 3: Ambiguity detection'
           location: { latitude: lat, longitude: lng }, // Same coords — but names differ
         });
 
-        const result = pickProminentPlace([first, second]);
+        const result = await pickProminentPlace([first, second]);
 
         // Names differ → not ambiguous → should return first place (default)
         expect(result).not.toBeNull();
@@ -336,7 +336,7 @@ describe('Feature: discovery-experience-polish, Property 3: Ambiguity detection'
     );
   });
 
-  it('returns non-null when coords are distant (no ambiguity)', () => {
+  it('returns non-null when coords are distant (no ambiguity)', async () => {
     const distantCoordsArb = fc.record({
       baseName: fc.stringMatching(/^[A-Za-z ]{3,20}$/),
       lat1: fc.double({ min: -85, max: 85, noNaN: true }),
@@ -349,8 +349,8 @@ describe('Feature: discovery-experience-polish, Property 3: Ambiguity detection'
       userRatingCount: fc.integer({ min: 0, max: 50 }),
     });
 
-    fc.assert(
-      fc.property(distantCoordsArb, ({ baseName, lat1, lng1, latDelta, lngDelta, rating, userRatingCount }) => {
+    await fc.assert(
+      fc.asyncProperty(distantCoordsArb, async ({ baseName, lat1, lng1, latDelta, lngDelta, rating, userRatingCount }) => {
         const first = makePlace({
           id: 'place-a',
           displayName: { text: baseName, languageCode: 'en' },
@@ -367,7 +367,7 @@ describe('Feature: discovery-experience-polish, Property 3: Ambiguity detection'
           location: { latitude: lat1 + latDelta, longitude: lng1 + lngDelta }, // Distant coords
         });
 
-        const result = pickProminentPlace([first, second]);
+        const result = await pickProminentPlace([first, second]);
 
         // Same name but distant coords → not ambiguous → should return first place
         expect(result).not.toBeNull();

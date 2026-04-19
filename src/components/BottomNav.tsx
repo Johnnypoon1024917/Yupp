@@ -1,10 +1,10 @@
 "use client";
 
-import { Compass, PlusCircle, User } from "lucide-react";
+import { CalendarDays, Compass, PlusCircle, User } from "lucide-react";
 
 export interface BottomNavProps {
-  activeTab: "discover" | "add" | "profile";
-  onTabChange: (tab: "discover" | "add" | "profile") => void;
+  activeTab: "discover" | "add" | "plan" | "profile";
+  onTabChange: (tab: "discover" | "add" | "plan" | "profile") => void;
 }
 
 export default function BottomNav({ activeTab, onTabChange }: BottomNavProps) {
@@ -34,6 +34,19 @@ export default function BottomNav({ activeTab, onTabChange }: BottomNavProps) {
         className={`flex items-center justify-center p-2 transition-transform duration-200 ${activeTab === "add" ? "scale-110" : ""}`}
       >
         <PlusCircle size={24} className="text-accent" />
+      </button>
+
+      <button
+        type="button"
+        onClick={() => onTabChange("plan")}
+        aria-label="Plan"
+        aria-current={activeTab === "plan" ? "page" : undefined}
+        className={`relative flex items-center justify-center p-2 transition-transform duration-200 ${activeTab === "plan" ? "scale-110" : ""}`}
+      >
+        <CalendarDays size={24} className={`transition-colors duration-200 ${activeTab === "plan" ? "text-accent" : "text-black"}`} />
+        {activeTab === "plan" && (
+          <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-accent" />
+        )}
       </button>
 
       <button

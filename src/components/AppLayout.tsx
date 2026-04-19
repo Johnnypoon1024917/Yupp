@@ -1,6 +1,7 @@
 'use client';
 
 import { useRef, useState, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import MapView from '@/components/MapView';
 import MagicBar from '@/components/MagicBar';
 import BottomNav from '@/components/BottomNav';
@@ -14,10 +15,11 @@ import type { MagicBarRef } from '@/components/MagicBar';
 
 export default function AppLayout() {
   useCloudSync();
+  const router = useRouter();
   const mapViewRef = useRef<MapViewRef>(null);
   const magicBarRef = useRef<MagicBarRef>(null);
 
-  const [activeTab, setActiveTab] = useState<'discover' | 'add' | 'profile'>('add');
+  const [activeTab, setActiveTab] = useState<'discover' | 'add' | 'plan' | 'profile'>('add');
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isDiscoverOpen, setIsDiscoverOpen] = useState(false);
 
@@ -28,7 +30,7 @@ export default function AppLayout() {
   const activePin = pins.find((p) => p.id === activePinId) ?? null;
 
   const handleTabChange = useCallback(
-    (tab: 'discover' | 'add' | 'profile') => {
+    (tab: 'discover' | 'add' | 'plan' | 'profile') => {
       setActiveTab(tab);
 
       if (tab === 'profile') {
@@ -37,6 +39,10 @@ export default function AppLayout() {
       } else if (tab === 'discover') {
         setIsDiscoverOpen(true);
         setIsProfileOpen(false);
+      } else if (tab === 'plan') {
+        setIsProfileOpen(false);
+        setIsDiscoverOpen(false);
+        router.push('/planner');
       } else {
         // 'add' tab — close sheets, focus MagicBar
         setIsProfileOpen(false);

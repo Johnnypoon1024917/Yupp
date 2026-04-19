@@ -29,10 +29,10 @@ export type GooglePlace = NonNullable<GooglePlacesResponse['places']>[number];
  * 3. Ambiguity check — same displayName (case-insensitive) + coords within 0.05°.
  * 4. Default to first result (Google's own ranking is a strong signal).
  */
-export function pickProminentPlace(
+export async function pickProminentPlace(
   places: GooglePlace[],
   contextualHints?: string[],
-): GooglePlace | null {
+): Promise<GooglePlace | null> {
   if (places.length === 0) return null;
   if (places.length === 1) return places[0];
 
@@ -137,7 +137,7 @@ export async function geocodeLocation(input: {
     // --- Prominence Picking ---
     // For a single result, accept it directly.
     // For multiple results, try to pick a clear winner before falling back to human input.
-    const winner = pickProminentPlace(places, contextualHints);
+    const winner = await pickProminentPlace(places, contextualHints);
 
     if (winner) {
       return {
