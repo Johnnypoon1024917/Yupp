@@ -114,31 +114,28 @@ export default function AppLayout() {
       {/* z-0: Map background — always mounted, full-screen */}
       <MapView ref={mapViewRef} className="absolute inset-0 z-0" />
 
-      {/* CollectionDrawer + PlannerSidebar wrapped in DndContext when planner is open */}
-      {isPlannerOpen ? (
+      {/* CollectionDrawer — always outside DndContext (not a drag source) */}
+      <CollectionDrawer
+        isOpen={isCollectionDrawerOpen}
+        onToggle={() => setIsCollectionDrawerOpen((v) => !v)}
+      />
+
+      {/* DndContext wraps PlannerSidebar (which contains LibraryPane drag source + TripTimeline drop targets) */}
+      {isPlannerOpen && (
         <DndContext
           sensors={sensors}
           collisionDetection={rectIntersection}
           onDragStart={handleDragStart}
           onDragEnd={handleDragEnd}
         >
-          <CollectionDrawer
-            isOpen={isCollectionDrawerOpen}
-            onToggle={() => setIsCollectionDrawerOpen((v) => !v)}
-          />
           <PlannerSidebar
             isOpen={isPlannerOpen}
             onClose={() => setIsPlannerOpen(false)}
           />
-          <DragOverlay dropAnimation={null}>
+          <DragOverlay dropAnimation={null} zIndex={85}>
             {activeDrag ? <DragPreview data={activeDrag} /> : null}
           </DragOverlay>
         </DndContext>
-      ) : (
-        <CollectionDrawer
-          isOpen={isCollectionDrawerOpen}
-          onToggle={() => setIsCollectionDrawerOpen((v) => !v)}
-        />
       )}
 
       {/* z-30: Bottom navigation pill */}

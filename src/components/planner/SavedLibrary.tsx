@@ -127,6 +127,7 @@ function PinCard({ pin }: { pin: Pin }) {
             src={pin.imageUrl}
             alt={pin.title}
             className="w-full h-full object-cover"
+            draggable={false}
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center text-neutral-300">
