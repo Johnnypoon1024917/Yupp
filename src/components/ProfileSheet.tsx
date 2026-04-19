@@ -38,15 +38,15 @@ export default function ProfileSheet({ open, onOpenChange }: ProfileSheetProps) 
   return (
     <Drawer.Root open={open} onOpenChange={onOpenChange}>
       <Drawer.Portal>
-        <Drawer.Overlay className="fixed inset-0 z-50 bg-black/40" />
+        <Drawer.Overlay className="fixed inset-0 z-[100] bg-black/40" />
         <Drawer.Content
-          className="fixed inset-x-0 bottom-0 z-50 flex flex-col rounded-t-3xl bg-surface"
+          className="fixed inset-x-0 bottom-0 z-[100] mx-auto max-w-md flex flex-col bg-surface rounded-t-[32px] shadow-[0_-8px_40px_rgba(0,0,0,0.12)] outline-none"
           aria-label="Profile"
         >
-          <Drawer.Handle className="mx-auto mt-2 h-1.5 w-12 rounded-full bg-gray-300" />
+          <div className="mx-auto mt-4 mb-5 h-1.5 w-12 rounded-full bg-gray-300 flex-shrink-0" />
           <Drawer.Title className="sr-only">Profile</Drawer.Title>
 
-          <div className="max-h-[85vh] overflow-y-auto px-6 py-6 space-y-6">
+          <div className="max-h-[85vh] overflow-y-auto px-6 py-1 pb-6 space-y-6">
             {/* Auth section */}
             <div>
               {user ? (
@@ -67,12 +67,12 @@ export default function ProfileSheet({ open, onOpenChange }: ProfileSheetProps) 
                     <p className="text-sm font-semibold text-primary truncate">
                       {user.user_metadata?.full_name ?? user.email}
                     </p>
-                    <p className="text-xs text-gray-400 truncate">{user.email}</p>
+                    <p className="text-sm font-medium text-gray-500 tracking-wide truncate">{user.email}</p>
                   </div>
                   <button
                     type="button"
                     onClick={handleSignOut}
-                    className="rounded-xl bg-gray-100 px-4 py-2 text-xs font-medium text-primary transition-colors hover:bg-gray-200"
+                    className="rounded-xl bg-gray-100 px-4 py-2 text-xs font-semibold text-primary transition-colors hover:bg-gray-200"
                   >
                     Sign out
                   </button>
@@ -81,7 +81,7 @@ export default function ProfileSheet({ open, onOpenChange }: ProfileSheetProps) 
                 <button
                   type="button"
                   onClick={handleSignIn}
-                  className="w-full rounded-xl bg-accent py-3 text-sm font-medium text-white transition-colors hover:bg-indigo-600"
+                  className="w-full rounded-2xl bg-accent py-3.5 text-sm font-semibold text-white transition-colors hover:bg-indigo-600"
                 >
                   Sign in with Google
                 </button>
@@ -90,7 +90,7 @@ export default function ProfileSheet({ open, onOpenChange }: ProfileSheetProps) 
 
             {/* Collections grid */}
             <div>
-              <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">
+              <h3 className="text-sm font-medium text-gray-500 tracking-wide mb-3">
                 Collections
               </h3>
               {collections.length === 0 ? (

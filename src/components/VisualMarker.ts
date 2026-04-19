@@ -9,7 +9,7 @@ const ANIMATION_NAME = 'visual-marker-pop-in';
 let stylesInjected = false;
 
 /**
- * Inject the pop-in keyframes into the document head once.
+ * Inject the pop-in keyframes and hover class into the document head once.
  */
 function injectStyles(): void {
   if (stylesInjected) return;
@@ -21,6 +21,10 @@ function injectStyles(): void {
   0% { transform: scale(0); }
   70% { transform: scale(1.15); }
   100% { transform: scale(1); }
+}
+.visual-marker-hover:hover,
+.visual-marker-hover:active {
+  transform: scale(1.1) !important;
 }
 `;
   document.head.appendChild(style);
@@ -40,17 +44,21 @@ export function createVisualMarkerElement(options: VisualMarkerOptions): HTMLDiv
 
   // Container
   const container = document.createElement('div');
+  container.className = 'visual-marker-hover';
   Object.assign(container.style, {
     width: '48px',
     height: '48px',
-    borderRadius: '8px',
-    border: '2px solid white',
-    boxShadow: '0 2px 6px rgba(0,0,0,0.25)',
+    position: 'relative',
+    zIndex: '50',
+    borderRadius: '50%',
+    backgroundColor: '#6366F1',
+    border: '2.5px solid #FFFFFF',
+    boxShadow: '0 8px 16px rgba(0,0,0,0.2)',
     overflow: 'hidden',
     cursor: 'pointer',
+    transformOrigin: 'center bottom',
+    transition: 'transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1)',
     animation: `${ANIMATION_NAME} 400ms ease-out forwards`,
-    zIndex: '10',
-    position: 'relative',
   } satisfies Partial<CSSStyleDeclaration>);
 
   // Image
@@ -61,7 +69,8 @@ export function createVisualMarkerElement(options: VisualMarkerOptions): HTMLDiv
     width: '100%',
     height: '100%',
     objectFit: 'cover',
-    aspectRatio: '1 / 1',
+    borderRadius: '50%',
+    pointerEvents: 'none',
     display: 'block',
   } satisfies Partial<CSSStyleDeclaration>);
 
@@ -87,7 +96,6 @@ export function createVisualMarkerElement(options: VisualMarkerOptions): HTMLDiv
  */
 function showFallback(container: HTMLDivElement): void {
   Object.assign(container.style, {
-    backgroundColor: '#6366F1',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',

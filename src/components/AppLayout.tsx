@@ -62,7 +62,7 @@ export default function AppLayout() {
   }, []);
 
   return (
-    <div className="relative w-screen h-[100dvh] overflow-hidden">
+    <div className="relative w-screen h-[100dvh] overflow-hidden overscroll-none touch-none bg-[#FAFAFA]">
       {/* z-0: Map background — always mounted, full-screen */}
       <MapView ref={mapViewRef} className="absolute inset-0 z-0" />
 
