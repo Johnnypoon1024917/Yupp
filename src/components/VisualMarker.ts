@@ -49,6 +49,8 @@ export function createVisualMarkerElement(options: VisualMarkerOptions): HTMLDiv
     overflow: 'hidden',
     cursor: 'pointer',
     animation: `${ANIMATION_NAME} 400ms ease-out forwards`,
+    zIndex: '10',
+    position: 'relative',
   } satisfies Partial<CSSStyleDeclaration>);
 
   // Image

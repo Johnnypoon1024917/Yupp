@@ -5,7 +5,8 @@ import MapView from '@/components/MapView';
 import MagicBar from '@/components/MagicBar';
 import BottomNav from '@/components/BottomNav';
 import PlaceSheet from '@/components/PlaceSheet';
-import AuthModal from '@/components/AuthModal';
+import ProfileSheet from '@/components/ProfileSheet';
+import DiscoverFeed from '@/components/DiscoverFeed';
 import useCloudSync from '@/hooks/useCloudSync';
 import useTravelPinStore from '@/store/useTravelPinStore';
 import type { MapViewRef } from '@/components/MapView';
@@ -16,8 +17,9 @@ export default function AppLayout() {
   const mapViewRef = useRef<MapViewRef>(null);
   const magicBarRef = useRef<MagicBarRef>(null);
 
-  const [activeTab, setActiveTab] = useState<'discover' | 'add' | 'profile'>('discover');
-  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<'discover' | 'add' | 'profile'>('add');
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [isDiscoverOpen, setIsDiscoverOpen] = useState(false);
 
   const activePinId = useTravelPinStore((s) => s.activePinId);
   const pins = useTravelPinStore((s) => s.pins);
@@ -27,12 +29,18 @@ export default function AppLayout() {
 
   const handleTabChange = useCallback(
     (tab: 'discover' | 'add' | 'profile') => {
-      if (tab === 'profile') {
-        setIsAuthModalOpen(true);
-        return;
-      }
       setActiveTab(tab);
-      if (tab === 'add') {
+
+      if (tab === 'profile') {
+        setIsProfileOpen(true);
+        setIsDiscoverOpen(false);
+      } else if (tab === 'discover') {
+        setIsDiscoverOpen(true);
+        setIsProfileOpen(false);
+      } else {
+        // 'add' tab — close sheets, focus MagicBar
+        setIsProfileOpen(false);
+        setIsDiscoverOpen(false);
         magicBarRef.current?.focus();
       }
     },
@@ -42,6 +50,16 @@ export default function AppLayout() {
   const handlePlaceSheetDismiss = useCallback(() => {
     setActivePinId(null);
   }, [setActivePinId]);
+
+  const handleProfileOpenChange = useCallback((open: boolean) => {
+    setIsProfileOpen(open);
+    if (!open) setActiveTab('add');
+  }, []);
+
+  const handleDiscoverOpenChange = useCallback((open: boolean) => {
+    setIsDiscoverOpen(open);
+    if (!open) setActiveTab('add');
+  }, []);
 
   return (
     <div className="relative w-screen h-[100dvh] overflow-hidden">
@@ -57,8 +75,11 @@ export default function AppLayout() {
       {/* z-50: Place detail bottom sheet */}
       <PlaceSheet pin={activePin} onDismiss={handlePlaceSheetDismiss} />
 
-      {/* Auth modal — opened via Profile tab */}
-      <AuthModal open={isAuthModalOpen} onOpenChange={setIsAuthModalOpen} />
+      {/* z-50: Profile sheet — auth + collections */}
+      <ProfileSheet open={isProfileOpen} onOpenChange={handleProfileOpenChange} />
+
+      {/* z-50: Discover feed — pin image grid */}
+      <DiscoverFeed open={isDiscoverOpen} onOpenChange={handleDiscoverOpenChange} />
     </div>
   );
 }
