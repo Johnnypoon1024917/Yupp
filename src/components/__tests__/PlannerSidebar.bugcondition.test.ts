@@ -21,9 +21,9 @@ describe('PlannerSidebar bug condition', () => {
     expect(source).not.toContain('onPointerLeave');
   });
 
-  it('1d: has onPointerMove with stopPropagation', () => {
-    expect(source).toContain('onPointerMove');
-    // Verify stopPropagation is used with onPointerMove
-    expect(source).toMatch(/onPointerMove.*stopPropagation|stopPropagation.*onPointerMove/s);
+  it('1d: does NOT have onPointerMove stopPropagation (events must bubble to dnd-kit)', () => {
+    // onPointerMove stopPropagation was removed because it blocks dnd-kit drag tracking.
+    // Map is locked via disableInteractions() during drag instead.
+    expect(source).not.toMatch(/onPointerMove.*stopPropagation/s);
   });
 });

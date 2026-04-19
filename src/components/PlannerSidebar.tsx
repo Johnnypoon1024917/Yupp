@@ -72,7 +72,6 @@ export default function PlannerSidebar({ isOpen, onClose, mapViewRef }: PlannerS
             transition={{ duration: 0.3, ease: 'easeInOut' }}
             className="fixed inset-y-0 right-0 z-[80] max-w-[400px] w-full bg-surface border-l border-border shadow-[-10px_0_40px_rgba(0,0,0,0.1)] flex flex-col"
             aria-label="Planner sidebar"
-            onPointerMove={(e) => e.stopPropagation()}
             onWheel={(e) => e.stopPropagation()}
           >
             <PlannerContent />
@@ -95,7 +94,6 @@ export default function PlannerSidebar({ isOpen, onClose, mapViewRef }: PlannerS
         <Drawer.Content
           className="fixed inset-0 z-[80] bg-surface flex flex-col"
           aria-label="Planner drawer"
-          onPointerMove={(e) => e.stopPropagation()}
           onWheel={(e) => e.stopPropagation()}
         >
           <Drawer.Handle className="mx-auto mt-2 h-1.5 w-12 rounded-full bg-gray-300" />

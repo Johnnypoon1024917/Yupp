@@ -15,10 +15,10 @@ describe('usePlannerDnd bug condition', () => {
     'utf-8'
   );
 
-  it('1a: PointerSensor uses delay-based activation (delay: 500, tolerance: 5)', () => {
+  it('1a: PointerSensor uses delay-based activation (delay: 200, tolerance: 8)', () => {
     // The source should contain a delay-based constraint, not distance-based
-    expect(source).toContain('delay: 500');
-    expect(source).toContain('tolerance: 5');
+    expect(source).toContain('delay: 200');
+    expect(source).toContain('tolerance: 8');
     expect(source).not.toContain('distance: 5');
   });
 });
