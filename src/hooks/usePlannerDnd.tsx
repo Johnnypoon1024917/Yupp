@@ -58,7 +58,7 @@ export default function usePlannerDnd(options?: UsePlannerDndOptions) {
   const [activeDrag, setActiveDrag] = useState<ActiveDragData | null>(null);
 
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(PointerSensor, { activationConstraint: { delay: 500, tolerance: 5 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   );
 

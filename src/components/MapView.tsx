@@ -115,6 +115,7 @@ const MapView = forwardRef<MapViewRef, MapViewProps>(function MapView({ classNam
     map.keyboard.disable();
     map.doubleClickZoom.disable();
     map.touchZoomRotate.disable();
+    map.touchPitch.disable();
   }, []);
 
   /** Re-enable all map interactions */
@@ -128,6 +129,7 @@ const MapView = forwardRef<MapViewRef, MapViewProps>(function MapView({ classNam
     map.keyboard.enable();
     map.doubleClickZoom.enable();
     map.touchZoomRotate.enable();
+    map.touchPitch.enable();
   }, []);
 
   // Expose flyToPin, resize, and interaction controls via ref
@@ -230,6 +232,7 @@ const MapView = forwardRef<MapViewRef, MapViewProps>(function MapView({ classNam
         width: '100%',
         height: '100%',
         background: '#FAFAFA',
+        touchAction: 'none',
       }}
     />
   );

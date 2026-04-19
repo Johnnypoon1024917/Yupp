@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from 'react';
 import { useDraggable } from '@dnd-kit/core';
+import { motion } from 'framer-motion';
 import { Search, GripVertical, MapPin } from 'lucide-react';
 import useTravelPinStore from '@/store/useTravelPinStore';
 import type { Pin } from '@/types';
@@ -112,15 +113,13 @@ function PinCard({ pin }: { pin: Pin }) {
   });
 
   return (
-    <div
+    <motion.div
       ref={setNodeRef}
       {...attributes}
       {...listeners}
-      onPointerDown={(e) => {
-        e.stopPropagation();
-        // Forward to dnd-kit listeners
-        listeners?.onPointerDown?.(e as never);
-      }}
+      whileTap={{ scale: 0.97, boxShadow: '0 2px 12px rgba(0,0,0,0.12)' }}
+      transition={{ duration: 0.15 }}
+      style={{ touchAction: 'none' }}
       className={`group rounded-card bg-surface border border-border overflow-hidden shadow-sm hover:shadow-md transition-shadow cursor-grab ${
         isDragging ? 'opacity-40' : ''
       }`}
@@ -150,6 +149,6 @@ function PinCard({ pin }: { pin: Pin }) {
           <GripVertical className="w-3.5 h-3.5" />
         </div>
       </div>
-    </div>
+    </motion.div>
   );
 }

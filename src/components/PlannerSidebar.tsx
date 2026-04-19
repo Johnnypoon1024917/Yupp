@@ -53,9 +53,6 @@ export default function PlannerSidebar({ isOpen, onClose, mapViewRef }: PlannerS
     return () => mql.removeEventListener('change', update);
   }, []);
 
-  const handlePointerEnter = () => mapViewRef?.current?.disableInteractions();
-  const handlePointerLeave = () => mapViewRef?.current?.enableInteractions();
-
   // Re-enable map interactions when sidebar closes
   useEffect(() => {
     if (!isOpen) {
@@ -75,10 +72,8 @@ export default function PlannerSidebar({ isOpen, onClose, mapViewRef }: PlannerS
             transition={{ duration: 0.3, ease: 'easeInOut' }}
             className="fixed inset-y-0 right-0 z-[80] max-w-[400px] w-full bg-surface border-l border-border shadow-[-10px_0_40px_rgba(0,0,0,0.1)] flex flex-col"
             aria-label="Planner sidebar"
-            onPointerDown={(e) => e.stopPropagation()}
+            onPointerMove={(e) => e.stopPropagation()}
             onWheel={(e) => e.stopPropagation()}
-            onPointerEnter={handlePointerEnter}
-            onPointerLeave={handlePointerLeave}
           >
             <PlannerContent />
           </motion.aside>
@@ -100,10 +95,8 @@ export default function PlannerSidebar({ isOpen, onClose, mapViewRef }: PlannerS
         <Drawer.Content
           className="fixed inset-0 z-[80] bg-surface flex flex-col"
           aria-label="Planner drawer"
-          onPointerDown={(e) => e.stopPropagation()}
+          onPointerMove={(e) => e.stopPropagation()}
           onWheel={(e) => e.stopPropagation()}
-          onPointerEnter={handlePointerEnter}
-          onPointerLeave={handlePointerLeave}
         >
           <Drawer.Handle className="mx-auto mt-2 h-1.5 w-12 rounded-full bg-gray-300" />
           <Drawer.Title className="sr-only">Trip Planner</Drawer.Title>

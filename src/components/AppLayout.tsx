@@ -113,49 +113,50 @@ export default function AppLayout() {
   }, [isPlannerOpen]);
 
   return (
-    <div className="relative w-screen h-[100dvh] overflow-hidden overscroll-none touch-none bg-[#FAFAFA]">
-      {/* z-0: Map background — always mounted, full-screen */}
-      <MapView ref={mapViewRef} className="absolute inset-0 z-0" />
+    <div className="relative w-screen h-[100dvh] overflow-hidden overscroll-none bg-[#FAFAFA]">
+      <DndContext
+        sensors={sensors}
+        collisionDetection={rectIntersection}
+        onDragStart={handleDragStart}
+        onDragEnd={handleDragEnd}
+      >
+        {/* z-0: Map background — always mounted, full-screen */}
+        <MapView ref={mapViewRef} className="absolute inset-0 z-0" />
 
-      {/* CollectionDrawer — always outside DndContext (not a drag source) */}
-      <CollectionDrawer
-        isOpen={isCollectionDrawerOpen}
-        onToggle={() => setIsCollectionDrawerOpen((v) => !v)}
-      />
+        {/* CollectionDrawer — not a drag source */}
+        <CollectionDrawer
+          isOpen={isCollectionDrawerOpen}
+          onToggle={() => setIsCollectionDrawerOpen((v) => !v)}
+        />
 
-      {/* DndContext wraps entire layout when planner is open — allows drag from anywhere into sidebar */}
-      {isPlannerOpen ? (
-        <DndContext
-          sensors={sensors}
-          collisionDetection={rectIntersection}
-          onDragStart={handleDragStart}
-          onDragEnd={handleDragEnd}
-        >
+        {/* PlannerSidebar — conditionally rendered */}
+        {isPlannerOpen && (
           <PlannerSidebar
             isOpen={isPlannerOpen}
             onClose={() => setIsPlannerOpen(false)}
             mapViewRef={mapViewRef}
           />
-          <DragOverlay dropAnimation={null} zIndex={85}>
-            {activeDrag ? <DragPreview data={activeDrag} /> : null}
-          </DragOverlay>
-        </DndContext>
-      ) : null}
+        )}
 
-      {/* z-30: Bottom navigation pill */}
-      <BottomNav activeTab={activeTab} onTabChange={handleTabChange} />
+        {/* z-30: Bottom navigation pill */}
+        <BottomNav activeTab={activeTab} onTabChange={handleTabChange} />
 
-      {/* z-40: Floating search bar */}
-      <MagicBar ref={magicBarRef} />
+        {/* z-40: Floating search bar */}
+        <MagicBar ref={magicBarRef} />
 
-      {/* z-50: Place detail bottom sheet */}
-      <PlaceSheet pin={activePin} onDismiss={handlePlaceSheetDismiss} />
+        {/* z-50: Place detail bottom sheet */}
+        <PlaceSheet pin={activePin} onDismiss={handlePlaceSheetDismiss} />
 
-      {/* z-50: Profile sheet — auth + collections */}
-      <ProfileSheet open={isProfileOpen} onOpenChange={handleProfileOpenChange} />
+        {/* z-50: Profile sheet — auth + collections */}
+        <ProfileSheet open={isProfileOpen} onOpenChange={handleProfileOpenChange} />
 
-      {/* z-50: Discover feed — pin image grid */}
-      <DiscoverFeed open={isDiscoverOpen} onOpenChange={handleDiscoverOpenChange} />
+        {/* z-50: Discover feed — pin image grid */}
+        <DiscoverFeed open={isDiscoverOpen} onOpenChange={handleDiscoverOpenChange} />
+
+        <DragOverlay dropAnimation={null} zIndex={85}>
+          {activeDrag ? <DragPreview data={activeDrag} /> : null}
+        </DragOverlay>
+      </DndContext>
     </div>
   );
 }
