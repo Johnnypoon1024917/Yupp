@@ -10,12 +10,15 @@ export interface Pin {
   placeId?: string;      // Google Places unique identifier
   primaryType?: string;  // Place type (e.g., "restaurant")
   rating?: number;       // Google rating (1.0–5.0)
+  user_id?: string;      // Set when persisted to cloud
 }
 
 export interface Collection {
   id: string;            // UUID v4 or "unorganized" for default
   name: string;          // User-defined or "Unorganized"
   createdAt: string;     // ISO 8601 timestamp
+  user_id?: string;      // Set when persisted to cloud
+  isPublic?: boolean;    // Maps to is_public column in DB
 }
 
 export interface ScrapeResult {

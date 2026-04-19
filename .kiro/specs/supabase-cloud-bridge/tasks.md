@@ -1,0 +1,47 @@
+# Tasks
+
+- [x] 1. Install Supabase packages and configure environment
+  - [x] 1.1 Install `@supabase/ssr` and `@supabase/supabase-js` as dependencies
+  - [x] 1.2 Add `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` to `.env.local` with placeholder values
+  - [x] 1.3 Add Supabase env vars to `.env.local.example` (or document in README) for team reference
+- [x] 2. Create database migration file
+  - [x] 2.1 Create `supabase/migrations/0001_initial_schema.sql` with `collections` table (id UUID PK, user_id UUID FK, name TEXT, is_public BOOLEAN, created_at TIMESTAMPTZ)
+  - [x] 2.2 Add `pins` table to migration (id UUID PK, user_id UUID FK, collection_id UUID FK, title TEXT, image_url TEXT, source_url TEXT, latitude FLOAT, longitude FLOAT, place_id TEXT nullable, primary_type TEXT nullable, rating FLOAT nullable, created_at TIMESTAMPTZ)
+  - [x] 2.3 Add RLS enable statements and CRUD policies for both tables (SELECT/INSERT/UPDATE/DELETE with `user_id = auth.uid()` condition)
+- [x] 3. Create Supabase client utilities
+  - [x] 3.1 Create `src/utils/supabase/client.ts` — export `createClient()` using `createBrowserClient` from `@supabase/ssr` with env var validation
+  - [x] 3.2 Create `src/utils/supabase/server.ts` — export `createClient()` using `createServerClient` from `@supabase/ssr` with `cookies()` API and env var validation
+- [x] 4. Create auth token refresh middleware
+  - [x] 4.1 Create `src/middleware.ts` that creates a server Supabase client, calls `supabase.auth.getUser()`, updates response cookies, and passes all requests through
+  - [x] 4.2 Export `config.matcher` that excludes `_next/static`, `_next/image`, `favicon.ico`, and image file extensions
+- [x] 5. Extend TypeScript interfaces and Zustand store
+  - [x] 5.1 Add optional `user_id?: string` field to `Pin` and `Collection` interfaces in `src/types/index.ts`
+  - [x] 5.2 Add `user: User | null` state field, `setUser` action, and `setCloudData` action to `useTravelPinStore.ts`
+- [x] 6. Create AuthModal component
+  - [x] 6.1 Create `src/components/AuthModal.tsx` using vaul Drawer with glassmorphic styling (`backdrop-blur-md bg-surface/90 rounded-3xl`)
+  - [x] 6.2 Implement unauthenticated state with "Sign in with Google" button calling `signInWithOAuth({ provider: 'google' })`
+  - [x] 6.3 Implement authenticated state showing user avatar/email and sign-out button calling `signOut()` and `setUser(null)`
+- [x] 7. Integrate AuthModal with BottomNav and AppLayout
+  - [x] 7.1 Update `AppLayout.tsx` to manage AuthModal open state and render AuthModal component
+  - [x] 7.2 Wire Profile tab in BottomNav to toggle AuthModal open state
+- [x] 8. Create cloud sync hook
+  - [x] 8.1 Create `src/hooks/useCloudSync.ts` that subscribes to `onAuthStateChange` and checks for existing session on mount
+  - [x] 8.2 Implement local data detection — identify pins and collections without `user_id`
+  - [x] 8.3 Implement collection ID mapping — batch insert local collections, build `Map<localId, cloudId>` from Supabase response
+  - [x] 8.4 Implement pin migration — replace `collectionId` with mapped cloud ID (fallback to unorganized), batch insert pins
+  - [x] 8.5 Implement post-migration hydration — fetch all cloud data, call `setCloudData` on store
+  - [x] 8.6 Implement SIGNED_OUT handler — call `setUser(null)` to revert to local-only mode
+  - [x] 8.7 Add toast notifications for sync success and error (with local data retention on failure)
+- [x] 9. Mount useCloudSync hook in AppLayout
+  - [x] 9.1 Call `useCloudSync()` in `AppLayout.tsx` so the sync engine is active for the entire app lifecycle
+- [x] 10. Write property-based tests
+  - [x] 10.1 PBT: setCloudData replaces store contents exactly (fast-check, ≥100 iterations) — Feature: supabase-cloud-bridge, Property 1
+  - [x] 10.2 PBT: Local data detection identifies items without user_id (fast-check, ≥100 iterations) — Feature: supabase-cloud-bridge, Property 2
+  - [x] 10.3 PBT: Collection ID mapping is bijective (fast-check, ≥100 iterations) — Feature: supabase-cloud-bridge, Property 3
+  - [x] 10.4 PBT: Pin collection IDs are correctly remapped (fast-check, ≥100 iterations) — Feature: supabase-cloud-bridge, Property 4
+- [x] 11. Write unit tests
+  - [x] 11.1 Unit tests for AuthModal (renders sign-in when unauth, renders user info when auth, calls signInWithOAuth, calls signOut)
+  - [x] 11.2 Unit tests for store extensions (setUser updates user, setCloudData replaces data, localStorage persistence unchanged)
+  - [x] 11.3 Unit tests for middleware (passes through unauth requests, config.matcher excludes static assets)
+  - [x] 11.4 Unit tests for sync engine (subscribes to onAuthStateChange, handles SIGNED_OUT, shows toasts, retains data on error)
+  - [x] 11.5 Unit tests for env var validation (missing URL throws error, missing anon key throws error)

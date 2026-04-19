@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { v4 as uuidv4 } from 'uuid';
 import type { Pin, Collection } from '@/types';
+import type { User } from '@supabase/supabase-js';
 
 export interface TravelPinStore {
   // State
@@ -10,6 +11,7 @@ export interface TravelPinStore {
   activeCollectionId: string | null;
   isDrawerOpen: boolean;
   activePinId: string | null;
+  user: User | null;
 
   // Actions
   addPin: (pin: Omit<Pin, 'id' | 'createdAt' | 'collectionId'>) => Pin;
@@ -20,6 +22,8 @@ export interface TravelPinStore {
   setActiveCollection: (collectionId: string | null) => void;
   toggleDrawer: () => void;
   setActivePinId: (pinId: string | null) => void;
+  setUser: (user: User | null) => void;
+  setCloudData: (pins: Pin[], collections: Collection[]) => void;
 }
 
 const DEFAULT_COLLECTION: Collection = {
@@ -36,6 +40,7 @@ const useTravelPinStore = create<TravelPinStore>()(
       activeCollectionId: null,
       isDrawerOpen: false,
       activePinId: null,
+      user: null,
 
       addPin: (pinData) => {
         const newPin: Pin = {
@@ -96,6 +101,14 @@ const useTravelPinStore = create<TravelPinStore>()(
 
       setActivePinId: (pinId) => {
         set({ activePinId: pinId });
+      },
+
+      setUser: (user) => {
+        set({ user });
+      },
+
+      setCloudData: (pins, collections) => {
+        set({ pins, collections });
       },
     }),
     {

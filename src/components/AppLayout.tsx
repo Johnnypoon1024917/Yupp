@@ -5,15 +5,19 @@ import MapView from '@/components/MapView';
 import MagicBar from '@/components/MagicBar';
 import BottomNav from '@/components/BottomNav';
 import PlaceSheet from '@/components/PlaceSheet';
+import AuthModal from '@/components/AuthModal';
+import useCloudSync from '@/hooks/useCloudSync';
 import useTravelPinStore from '@/store/useTravelPinStore';
 import type { MapViewRef } from '@/components/MapView';
 import type { MagicBarRef } from '@/components/MagicBar';
 
 export default function AppLayout() {
+  useCloudSync();
   const mapViewRef = useRef<MapViewRef>(null);
   const magicBarRef = useRef<MagicBarRef>(null);
 
   const [activeTab, setActiveTab] = useState<'discover' | 'add' | 'profile'>('discover');
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
 
   const activePinId = useTravelPinStore((s) => s.activePinId);
   const pins = useTravelPinStore((s) => s.pins);
@@ -23,6 +27,10 @@ export default function AppLayout() {
 
   const handleTabChange = useCallback(
     (tab: 'discover' | 'add' | 'profile') => {
+      if (tab === 'profile') {
+        setIsAuthModalOpen(true);
+        return;
+      }
       setActiveTab(tab);
       if (tab === 'add') {
         magicBarRef.current?.focus();
@@ -48,6 +56,9 @@ export default function AppLayout() {
 
       {/* z-50: Place detail bottom sheet */}
       <PlaceSheet pin={activePin} onDismiss={handlePlaceSheetDismiss} />
+
+      {/* Auth modal — opened via Profile tab */}
+      <AuthModal open={isAuthModalOpen} onOpenChange={setIsAuthModalOpen} />
     </div>
   );
 }
