@@ -8,7 +8,7 @@ import { geocodeLocation } from '@/actions/geocodeLocation';
 import useTravelPinStore from '@/store/useTravelPinStore';
 import type { Pin } from '@/types';
 
-export type MagicBarState = 'idle' | 'processing' | 'error' | 'success';
+export type MagicBarState = 'idle' | 'processing' | 'needs_input' | 'error' | 'success';
 
 export interface MagicBarProps {
   onPinCreated?: (pin: Pin) => void;
@@ -31,12 +31,18 @@ export default function MagicBar({ onPinCreated }: MagicBarProps) {
   const [inputValue, setInputValue] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
   const [isFocused, setIsFocused] = useState(false);
+  const [partialData, setPartialData] = useState<{ title: string; imageUrl: string | null } | null>(null);
+  const [clarificationValue, setClarificationValue] = useState('');
+  const [sourceUrl, setSourceUrl] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
   const addPin = useTravelPinStore((s) => s.addPin);
 
   const resetToIdle = useCallback(() => {
     setState('idle');
     setErrorMessage('');
+    setPartialData(null);
+    setClarificationValue('');
+    setSourceUrl('');
   }, []);
 
   const handleSubmit = useCallback(
@@ -66,35 +72,42 @@ export default function MagicBar({ onPinCreated }: MagicBarProps) {
           return;
         }
 
-        // Step 2: Geocode the location
+        // Step 2: Geocode the location, passing partialData from scrape
         const geocodeResult = await geocodeLocation({
           location: scrapeResult.location,
           contextualHints: scrapeResult.contextualHints,
+          partialData: { title: scrapeResult.title, imageUrl: scrapeResult.imageUrl },
         });
-        if (!geocodeResult.success) {
-          setState('error');
-          setErrorMessage(geocodeResult.error);
-          return;
+
+        switch (geocodeResult.status) {
+          case 'success': {
+            const newPin = addPin({
+              title: scrapeResult.title,
+              imageUrl: scrapeResult.imageUrl ?? '/placeholder-pin.svg',
+              sourceUrl: scrapeResult.sourceUrl,
+              latitude: geocodeResult.lat,
+              longitude: geocodeResult.lng,
+            });
+            onPinCreated?.(newPin);
+            setState('success');
+            setInputValue('');
+            setTimeout(() => {
+              resetToIdle();
+            }, 600);
+            break;
+          }
+          case 'needs_user_input': {
+            setPartialData(geocodeResult.partialData);
+            setSourceUrl(scrapeResult.sourceUrl);
+            setState('needs_input');
+            break;
+          }
+          case 'error': {
+            setState('error');
+            setErrorMessage(geocodeResult.error);
+            break;
+          }
         }
-
-        // Step 3: Create pin in the store (no partial pin — only on full success)
-        const newPin = addPin({
-          title: scrapeResult.title,
-          imageUrl: scrapeResult.imageUrl ?? '/placeholder-pin.svg',
-          sourceUrl: scrapeResult.sourceUrl,
-          latitude: geocodeResult.lat,
-          longitude: geocodeResult.lng,
-        });
-
-        // Notify parent if callback provided
-        onPinCreated?.(newPin);
-
-        // Success — clear input and briefly show success state
-        setState('success');
-        setInputValue('');
-        setTimeout(() => {
-          resetToIdle();
-        }, 600);
       } catch (err) {
         setState('error');
         setErrorMessage(
@@ -105,11 +118,45 @@ export default function MagicBar({ onPinCreated }: MagicBarProps) {
     [inputValue, addPin, onPinCreated, resetToIdle]
   );
 
+  const handleClarificationSubmit = useCallback(
+    async (e: React.FormEvent) => {
+      e.preventDefault();
+
+      const trimmed = clarificationValue.trim();
+      if (!trimmed) return;
+
+      try {
+        const geocodeResult = await geocodeLocation({ location: trimmed });
+
+        if (geocodeResult.status === 'success') {
+          const newPin = addPin({
+            title: partialData?.title ?? '',
+            imageUrl: partialData?.imageUrl ?? '/placeholder-pin.svg',
+            sourceUrl,
+            latitude: geocodeResult.lat,
+            longitude: geocodeResult.lng,
+          });
+          onPinCreated?.(newPin);
+          setState('success');
+          setInputValue('');
+          setClarificationValue('');
+          setTimeout(() => {
+            resetToIdle();
+          }, 600);
+        }
+        // On ERROR or NEEDS_USER_INPUT, stay in needs_input state
+      } catch {
+        // Stay in needs_input state on unexpected errors
+      }
+    },
+    [clarificationValue, partialData, sourceUrl, addPin, onPinCreated, resetToIdle]
+  );
+
   const handleChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
       setInputValue(e.target.value);
-      // Clear error when user starts typing again
-      if (state === 'error') {
+      // Clear error or needs_input when user starts typing again
+      if (state === 'error' || state === 'needs_input') {
         resetToIdle();
       }
     },
@@ -215,6 +262,49 @@ export default function MagicBar({ onPinCreated }: MagicBarProps) {
           {errorMessage}
         </motion.p>
       )}
+
+      {/* Needs-input clarification UI */}
+      <AnimatePresence>
+        {state === 'needs_input' && partialData && (
+          <motion.div
+            layout
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+            className="mt-2 w-full rounded-2xl border border-border bg-surface/80 backdrop-blur-md shadow-sm p-4"
+          >
+            <form onSubmit={handleClarificationSubmit} className="flex items-start gap-3">
+              {/* Thumbnail */}
+              {partialData.imageUrl ? (
+                <img
+                  src={partialData.imageUrl}
+                  alt={partialData.title}
+                  className="w-12 h-12 rounded-lg object-cover flex-shrink-0"
+                />
+              ) : (
+                <div className="w-12 h-12 rounded-lg bg-gray-200 flex-shrink-0" />
+              )}
+
+              {/* Prompt + Input */}
+              <div className="flex-1 min-w-0">
+                <p className="text-sm text-primary font-medium leading-snug">
+                  We saved the vibe! Where exactly is this?
+                </p>
+                <input
+                  type="text"
+                  value={clarificationValue}
+                  onChange={(e) => setClarificationValue(e.target.value)}
+                  placeholder="Type a venue or address…"
+                  aria-label="Clarify the location by typing a venue name or address"
+                  className="mt-2 w-full bg-transparent border border-border rounded-lg px-3 py-1.5 text-sm text-primary placeholder:text-gray-400 outline-none focus:ring-1 focus:ring-accent"
+                  autoFocus
+                />
+              </div>
+            </form>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

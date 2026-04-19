@@ -1,209 +1,97 @@
 'use server';
 
-import { GeocodeResult, GeocodeError } from '@/types';
+import { GeocodeResult } from '@/types';
 
-// --- Geocoder Configuration ---
+const GOOGLE_PLACES_URL = 'https://places.googleapis.com/v1/places:searchText';
+const FIELD_MASK = 'places.location,places.displayName,places.primaryType,places.rating,places.id';
+const TIMEOUT_MS = 10_000;
 
-const NOMINATIM_BASE_URL = 'https://nominatim.openstreetmap.org/search';
-const USER_AGENT = 'TravelPinBoard/1.0';
-const TIMEOUT_MS = 10000;
-const MIN_REQUEST_INTERVAL_MS = 1000;
-
-// --- Rate Limiting ---
-
-let lastRequestTimestamp = 0;
-
-async function enforceRateLimit(): Promise<void> {
-  const now = Date.now();
-  const elapsed = now - lastRequestTimestamp;
-  if (elapsed < MIN_REQUEST_INTERVAL_MS) {
-    const waitMs = MIN_REQUEST_INTERVAL_MS - elapsed;
-    await new Promise((resolve) => setTimeout(resolve, waitMs));
-  }
-  lastRequestTimestamp = Date.now();
+interface GooglePlacesResponse {
+  places?: Array<{
+    id: string;
+    displayName: { text: string; languageCode: string };
+    location: { latitude: number; longitude: number };
+    primaryType?: string;
+    rating?: number;
+  }>;
 }
 
-// --- Nominatim Types ---
+export async function geocodeLocation(input: {
+  location: string;
+  contextualHints?: string[];
+  partialData?: { title: string; imageUrl: string | null };
+}): Promise<GeocodeResult> {
+  const { location, contextualHints, partialData } = input;
 
-interface NominatimResult {
-  place_id: number;
-  lat: string;
-  lon: string;
-  display_name: string;
-  importance: number;
-  boundingbox: [string, string, string, string]; // [south, north, west, east]
-}
+  console.log('[geocodeLocation] Called with:', { location, contextualHints, partialData: !!partialData });
 
-// --- Core Nominatim Query ---
-
-async function queryNominatim(
-  query: string,
-  viewbox?: string
-): Promise<NominatimResult[]> {
-  await enforceRateLimit();
-
-  const params = new URLSearchParams({
-    q: query,
-    format: 'json',
-    limit: '5',
-  });
-
-  if (viewbox) {
-    params.set('viewbox', viewbox);
-    params.set('bounded', '0');
+  if (!location || location.trim().length === 0) {
+    return { status: 'error', error: 'Location string is empty' };
   }
 
-  const url = `${NOMINATIM_BASE_URL}?${params.toString()}`;
+  const apiKey = process.env.GOOGLE_PLACES_API_KEY;
+  if (!apiKey) {
+    return { status: 'error', error: 'GOOGLE_PLACES_API_KEY is not configured' };
+  }
+
+  const textQuery =
+    contextualHints && contextualHints.length > 0
+      ? `${location}, ${contextualHints[0]}`
+      : location;
 
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_MS);
 
   try {
-    const response = await fetch(url, {
+    const response = await fetch(GOOGLE_PLACES_URL, {
+      method: 'POST',
       headers: {
-        'User-Agent': USER_AGENT,
+        'Content-Type': 'application/json',
+        'X-Goog-Api-Key': apiKey,
+        'X-Goog-FieldMask': FIELD_MASK,
       },
+      body: JSON.stringify({ textQuery }),
       signal: controller.signal,
     });
 
     clearTimeout(timeoutId);
 
     if (!response.ok) {
-      throw new Error(`Nominatim returned status ${response.status}`);
+      return { status: 'error', error: `Google Places API returned status ${response.status}` };
     }
 
-    const data: NominatimResult[] = await response.json();
-    return data;
-  } catch (error: unknown) {
-    clearTimeout(timeoutId);
-    if (error instanceof DOMException && error.name === 'AbortError') {
-      throw new Error('Nominatim request timed out after 10 seconds');
-    }
-    throw error;
-  }
-}
+    const data: GooglePlacesResponse = await response.json();
+    const places = data.places ?? [];
 
-// --- Viewbox Biasing ---
+    console.log('[geocodeLocation] Google Places returned', places.length, 'results for query:', textQuery);
 
-async function getViewboxFromHints(
-  hints: string[]
-): Promise<string | undefined> {
-  // Geocode the first hint to get a rough bounding box
-  const hintQuery = hints.join(', ');
-  try {
-    const results = await queryNominatim(hintQuery);
-    if (results.length > 0) {
-      const [south, north, west, east] = results[0].boundingbox;
-      // viewbox format: west,south,east,north (lon1,lat1,lon2,lat2)
-      return `${west},${south},${east},${north}`;
-    }
-  } catch (error) {
-    console.warn('Failed to geocode contextual hint:', hintQuery, error);
-  }
-  return undefined;
-}
-
-// --- Select Best Result ---
-
-function selectBestResult(results: NominatimResult[]): NominatimResult {
-  // Sort by importance descending
-  const sorted = [...results].sort((a, b) => b.importance - a.importance);
-  const best = sorted[0];
-
-  // Log alternatives
-  if (sorted.length > 1) {
-    console.log(
-      `Geocode: Selected "${best.display_name}" (importance: ${best.importance}). Alternatives:`
-    );
-    sorted.slice(1).forEach((alt) => {
-      console.log(
-        `  - "${alt.display_name}" (importance: ${alt.importance})`
-      );
-    });
-  }
-
-  return best;
-}
-
-// --- Main Exported Function ---
-
-export async function geocodeLocation(input: {
-  location: string;
-  contextualHints?: string[];
-}): Promise<GeocodeResult | GeocodeError> {
-  const { location, contextualHints } = input;
-
-  if (!location || location.trim().length === 0) {
-    return { success: false, error: 'Location string is empty' };
-  }
-
-  try {
-    // Build viewbox from contextual hints if provided
-    let viewbox: string | undefined;
-    if (contextualHints && contextualHints.length > 0) {
-      viewbox = await getViewboxFromHints(contextualHints);
-    }
-
-    // Query Nominatim for the primary location
-    const results = await queryNominatim(location.trim(), viewbox);
-
-    if (results.length === 0) {
-      // Fallback: try combining location with contextual hints for more context
-      // e.g., "TATE Dining Room" alone fails, but "TATE Dining Room Hong Kong" might work
-      if (contextualHints && contextualHints.length > 0) {
-        for (const hint of contextualHints) {
-          const combinedQuery = `${location.trim()}, ${hint}`;
-          const combinedResults = await queryNominatim(combinedQuery);
-          if (combinedResults.length > 0) {
-            const best = selectBestResult(combinedResults);
-            return {
-              success: true,
-              lat: parseFloat(best.lat),
-              lng: parseFloat(best.lon),
-              displayName: best.display_name,
-              importance: best.importance,
-            };
-          }
-        }
-
-        // Last resort: try geocoding just the hints themselves
-        for (const hint of contextualHints) {
-          const hintResults = await queryNominatim(hint);
-          if (hintResults.length > 0) {
-            const best = selectBestResult(hintResults);
-            console.log(`Geocode: Fell back to contextual hint "${hint}" → "${best.display_name}"`);
-            return {
-              success: true,
-              lat: parseFloat(best.lat),
-              lng: parseFloat(best.lon),
-              displayName: best.display_name,
-              importance: best.importance,
-            };
-          }
-        }
-      }
-
+    if (places.length === 1) {
+      const place = places[0];
       return {
-        success: false,
-        error: `Could not geocode location: "${location}". No results found.`,
+        status: 'success',
+        lat: place.location.latitude,
+        lng: place.location.longitude,
+        displayName: place.displayName.text,
+        enrichedData: {
+          placeId: place.id,
+          primaryType: place.primaryType,
+          rating: place.rating,
+        },
       };
     }
 
-    const best = selectBestResult(results);
-
     return {
-      success: true,
-      lat: parseFloat(best.lat),
-      lng: parseFloat(best.lon),
-      displayName: best.display_name,
-      importance: best.importance,
+      status: 'needs_user_input',
+      partialData: partialData ?? { title: '', imageUrl: null },
     };
   } catch (error: unknown) {
-    const message =
-      error instanceof Error ? error.message : 'Unknown geocoding error';
-    return {
-      success: false,
-      error: `Geocoding failed: ${message}`,
-    };
+    clearTimeout(timeoutId);
+
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      return { status: 'error', error: 'Google Places request timed out after 10 seconds' };
+    }
+
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    return { status: 'error', error: `Geocoding failed: ${message}` };
   }
 }

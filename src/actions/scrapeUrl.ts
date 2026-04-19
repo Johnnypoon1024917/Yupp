@@ -79,7 +79,7 @@ export async function extractImage(page: Page): Promise<string | null> {
     if (ogImage?.trim()) return ogImage.trim();
 
     const images = document.querySelectorAll('img');
-    for (const img of images) {
+    for (const img of Array.from(images)) {
       const src = img.getAttribute('src');
       if (!src) continue;
 
@@ -117,7 +117,7 @@ export async function extractLocation(page: Page): Promise<string | null> {
 
     // --- Priority 2: JSON-LD structured data ---
     const jsonLdScripts = document.querySelectorAll('script[type="application/ld+json"]');
-    for (const script of jsonLdScripts) {
+    for (const script of Array.from(jsonLdScripts)) {
       try {
         const data = JSON.parse(script.textContent || '');
         const loc = extractLocationFromJsonLd(data);

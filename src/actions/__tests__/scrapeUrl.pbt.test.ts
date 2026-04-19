@@ -20,7 +20,6 @@ function createMockPage(html: string): Page {
     evaluate: async (fn: (...args: unknown[]) => unknown, ...args: unknown[]) => {
       const origDocument = globalThis.document;
       try {
-        // @ts-expect-error – assigning JSDOM document to globalThis for evaluate
         globalThis.document = dom.window.document;
         return fn(...args);
       } finally {

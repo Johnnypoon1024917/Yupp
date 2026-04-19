@@ -29,15 +29,13 @@ export interface ScrapeError {
   error: string;
 }
 
-export interface GeocodeResult {
-  success: true;
-  lat: number;
-  lng: number;
-  displayName: string;
-  importance: number;
+export interface EnrichedData {
+  placeId: string;
+  primaryType?: string;
+  rating?: number;
 }
 
-export interface GeocodeError {
-  success: false;
-  error: string;
-}
+export type GeocodeResult =
+  | { status: 'success'; lat: number; lng: number; displayName: string; enrichedData: EnrichedData }
+  | { status: 'needs_user_input'; partialData: { title: string; imageUrl: string | null } }
+  | { status: 'error'; error: string };
