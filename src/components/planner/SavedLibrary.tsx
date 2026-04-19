@@ -116,6 +116,11 @@ function PinCard({ pin }: { pin: Pin }) {
       ref={setNodeRef}
       {...attributes}
       {...listeners}
+      onPointerDown={(e) => {
+        e.stopPropagation();
+        // Forward to dnd-kit listeners
+        listeners?.onPointerDown?.(e as never);
+      }}
       className={`group rounded-card bg-surface border border-border overflow-hidden shadow-sm hover:shadow-md transition-shadow cursor-grab ${
         isDragging ? 'opacity-40' : ''
       }`}

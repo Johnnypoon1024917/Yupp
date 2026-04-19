@@ -44,7 +44,12 @@ export function parseDayFromTarget(
   return null;
 }
 
-export default function usePlannerDnd() {
+export interface UsePlannerDndOptions {
+  onDragStart?: () => void;
+  onDragEnd?: () => void;
+}
+
+export default function usePlannerDnd(options?: UsePlannerDndOptions) {
   const addPinToDay = usePlannerStore((s) => s.addPinToDay);
   const reorderPinInDay = usePlannerStore((s) => s.reorderPinInDay);
   const movePinBetweenDays = usePlannerStore((s) => s.movePinBetweenDays);
@@ -53,18 +58,20 @@ export default function usePlannerDnd() {
   const [activeDrag, setActiveDrag] = useState<ActiveDragData | null>(null);
 
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   );
 
   const handleDragStart = useCallback((event: DragStartEvent) => {
     const data = event.active.data.current as ActiveDragData | undefined;
     if (data) setActiveDrag(data);
-  }, []);
+    options?.onDragStart?.();
+  }, [options]);
 
   const handleDragEnd = useCallback(
     (event: DragEndEvent) => {
       setActiveDrag(null);
+      options?.onDragEnd?.();
       const { active, over } = event;
       if (!over) return;
 
@@ -114,7 +121,7 @@ export default function usePlannerDnd() {
         }
       }
     },
-    [addPinToDay, reorderPinInDay, movePinBetweenDays, dayItems]
+    [addPinToDay, reorderPinInDay, movePinBetweenDays, dayItems, options]
   );
 
   return { sensors, activeDrag, handleDragStart, handleDragEnd, DragPreview };

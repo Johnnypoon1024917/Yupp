@@ -31,7 +31,10 @@ export default function AppLayout() {
 
   const fetchItineraries = usePlannerStore((s) => s.fetchItineraries);
   const { sensors, activeDrag, handleDragStart, handleDragEnd, DragPreview } =
-    usePlannerDnd();
+    usePlannerDnd({
+      onDragStart: () => mapViewRef.current?.disableInteractions(),
+      onDragEnd: () => mapViewRef.current?.enableInteractions(),
+    });
 
   const activePinId = useTravelPinStore((s) => s.activePinId);
   const pins = useTravelPinStore((s) => s.pins);
@@ -120,8 +123,8 @@ export default function AppLayout() {
         onToggle={() => setIsCollectionDrawerOpen((v) => !v)}
       />
 
-      {/* DndContext wraps PlannerSidebar (which contains LibraryPane drag source + TripTimeline drop targets) */}
-      {isPlannerOpen && (
+      {/* DndContext wraps entire layout when planner is open — allows drag from anywhere into sidebar */}
+      {isPlannerOpen ? (
         <DndContext
           sensors={sensors}
           collisionDetection={rectIntersection}
@@ -137,7 +140,7 @@ export default function AppLayout() {
             {activeDrag ? <DragPreview data={activeDrag} /> : null}
           </DragOverlay>
         </DndContext>
-      )}
+      ) : null}
 
       {/* z-30: Bottom navigation pill */}
       <BottomNav activeTab={activeTab} onTabChange={handleTabChange} />

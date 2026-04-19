@@ -17,7 +17,7 @@ export interface PlannerSidebarProps {
 
 /** Shared planner content — rendered inside both desktop panel and mobile drawer. */
 function PlannerContent() {
-  const [libOpen, setLibOpen] = useState(false);
+  const [libOpen, setLibOpen] = useState(true);
 
   return (
     <>
@@ -76,6 +76,7 @@ export default function PlannerSidebar({ isOpen, onClose, mapViewRef }: PlannerS
             className="fixed inset-y-0 right-0 z-[80] max-w-[400px] w-full bg-surface border-l border-border shadow-[-10px_0_40px_rgba(0,0,0,0.1)] flex flex-col"
             aria-label="Planner sidebar"
             onPointerDown={(e) => e.stopPropagation()}
+            onWheel={(e) => e.stopPropagation()}
             onPointerEnter={handlePointerEnter}
             onPointerLeave={handlePointerLeave}
           >
@@ -100,6 +101,7 @@ export default function PlannerSidebar({ isOpen, onClose, mapViewRef }: PlannerS
           className="fixed inset-0 z-[80] bg-surface flex flex-col"
           aria-label="Planner drawer"
           onPointerDown={(e) => e.stopPropagation()}
+          onWheel={(e) => e.stopPropagation()}
           onPointerEnter={handlePointerEnter}
           onPointerLeave={handlePointerLeave}
         >
