@@ -23,14 +23,21 @@ export interface Collection {
   isPublic?: boolean;    // Maps to is_public column in DB
 }
 
+export interface ExtractedPlace {
+  name: string;
+  contextualHints: string[];
+}
+
+export type Platform = 'instagram' | 'douyin' | 'xiaohongshu' | 'unknown';
+
 export interface ScrapeResult {
   success: true;
   title: string;
   description: string | null; // Caption/body text split from title
   imageUrl: string | null; // null → use placeholder
-  location: string;
-  contextualHints: string[]; // e.g., ["Bali", "Indonesia"] from bio/caption
   sourceUrl: string;
+  platform: Platform;
+  extractedPlaces: ExtractedPlace[]; // replaces location + contextualHints
 }
 
 export interface ScrapeError {

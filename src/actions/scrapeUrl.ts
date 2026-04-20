@@ -3,6 +3,7 @@
 import puppeteer from 'puppeteer-core';
 import type { Browser, Page } from 'puppeteer-core';
 import type { ScrapeResult, ScrapeError } from '@/types';
+import { detectPlatform, extractPlacesWithAI } from '@/actions/extractPlaces';
 
 const DESKTOP_USER_AGENT =
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
@@ -409,30 +410,27 @@ export async function scrapeUrl(url: string): Promise<ScrapeResult | ScrapeError
       };
     }
 
+    // Detect platform from URL
+    const platform = detectPlatform(url);
+
     // Extract metadata
     const rawTitle = await extractTitle(page);
     const { title, description } = await splitTitleAndDescription(rawTitle);
     const imageUrl = await extractImage(page);
-    const location = await extractLocation(page);
-    const contextualHints = await extractContextualHints(page);
 
-    console.log('[scrapeUrl] Extracted:', { title, description: description?.slice(0, 80), imageUrl: imageUrl?.slice(0, 80), location, contextualHints });
+    // Use AI extraction to find places from caption/description
+    const caption = description ?? '';
+    const extractedPlaces = await extractPlacesWithAI(caption, rawTitle);
 
-    // Location is required
-    if (!location) {
-      return {
-        success: false,
-        error: 'Could not determine location from the provided URL.',
-      };
-    }
+    console.log('[scrapeUrl] Extracted:', { title, description: description?.slice(0, 80), imageUrl: imageUrl?.slice(0, 80), platform, extractedPlaces });
 
     return {
       success: true,
       title,
       description,
       imageUrl,
-      location,
-      contextualHints,
+      platform,
+      extractedPlaces,
       sourceUrl: url,
     };
   } catch (err: unknown) {

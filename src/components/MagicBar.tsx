@@ -10,6 +10,14 @@ import type { Pin } from '@/types';
 
 export type MagicBarState = 'idle' | 'processing' | 'needs_input' | 'error' | 'success';
 
+/**
+ * Capitalizes the first letter of a platform name for display.
+ */
+export function formatPlatformName(platform: string): string {
+  if (!platform) return 'Unknown';
+  return platform.charAt(0).toUpperCase() + platform.slice(1);
+}
+
 export interface MagicBarRef {
   focus: () => void;
 }
@@ -34,6 +42,7 @@ const MagicBar = forwardRef<MagicBarRef, MagicBarProps>(function MagicBar({ onPi
   const [state, setState] = useState<MagicBarState>('idle');
   const [inputValue, setInputValue] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
+  const [statusText, setStatusText] = useState('');
   const [isFocused, setIsFocused] = useState(false);
   const [partialData, setPartialData] = useState<{ title: string; imageUrl: string | null } | null>(null);
   const [clarificationValue, setClarificationValue] = useState('');
@@ -50,6 +59,7 @@ const MagicBar = forwardRef<MagicBarRef, MagicBarProps>(function MagicBar({ onPi
   const resetToIdle = useCallback(() => {
     setState('idle');
     setErrorMessage('');
+    setStatusText('');
     setPartialData(null);
     setClarificationValue('');
     setSourceUrl('');
@@ -72,6 +82,7 @@ const MagicBar = forwardRef<MagicBarRef, MagicBarProps>(function MagicBar({ onPi
       // Clear any previous error
       setErrorMessage('');
       setState('processing');
+      setStatusText('Scanning for multiple spots...');
 
       try {
         // Step 1: Scrape the URL
@@ -82,46 +93,59 @@ const MagicBar = forwardRef<MagicBarRef, MagicBarProps>(function MagicBar({ onPi
           return;
         }
 
-        // Step 2: Geocode the location, passing partialData from scrape
-        const geocodeResult = await geocodeLocation({
-          location: scrapeResult.location,
-          contextualHints: scrapeResult.contextualHints,
-          partialData: { title: scrapeResult.title, imageUrl: scrapeResult.imageUrl },
-        });
+        // Step 2: Check for extracted places
+        if (scrapeResult.extractedPlaces.length === 0) {
+          setState('error');
+          setErrorMessage('No places found in this post.');
+          return;
+        }
 
-        switch (geocodeResult.status) {
-          case 'success': {
-            const newPin = addPin({
-              title: scrapeResult.title,
-              description: scrapeResult.description ?? undefined,
-              imageUrl: scrapeResult.imageUrl ?? '/placeholder-pin.svg',
-              sourceUrl: scrapeResult.sourceUrl,
-              latitude: geocodeResult.lat,
-              longitude: geocodeResult.lng,
-              address: geocodeResult.address,
-              placeId: geocodeResult.enrichedData.placeId,
-              primaryType: geocodeResult.enrichedData.primaryType,
-              rating: geocodeResult.enrichedData.rating,
-            });
-            onPinCreated?.(newPin);
-            setState('success');
-            setInputValue('');
-            setTimeout(() => {
-              resetToIdle();
-            }, 600);
-            break;
-          }
-          case 'needs_user_input': {
-            setPartialData(geocodeResult.partialData);
-            setSourceUrl(scrapeResult.sourceUrl);
-            setState('needs_input');
-            break;
-          }
-          case 'error': {
-            setState('error');
-            setErrorMessage(geocodeResult.error);
-            break;
-          }
+        // Step 3: Batch geocode all extracted places in parallel
+        setStatusText('Pinning spots...');
+        const geocodeResults = await Promise.allSettled(
+          scrapeResult.extractedPlaces.map((place) =>
+            geocodeLocation({
+              location: place.name,
+              contextualHints: place.contextualHints,
+              partialData: { title: scrapeResult.title, imageUrl: scrapeResult.imageUrl },
+            })
+          )
+        );
+
+        // Step 4: Add pins for each successfully geocoded place
+        let pinnedCount = 0;
+        for (const result of geocodeResults) {
+          if (result.status !== 'fulfilled') continue;
+          const geocodeResult = result.value;
+          if (geocodeResult.status !== 'success') continue;
+
+          const newPin = addPin({
+            title: scrapeResult.title,
+            description: scrapeResult.description ?? undefined,
+            imageUrl: scrapeResult.imageUrl ?? '/placeholder-pin.svg',
+            sourceUrl: scrapeResult.sourceUrl,
+            latitude: geocodeResult.lat,
+            longitude: geocodeResult.lng,
+            address: geocodeResult.address,
+            placeId: geocodeResult.enrichedData.placeId,
+            primaryType: geocodeResult.enrichedData.primaryType,
+            rating: geocodeResult.enrichedData.rating,
+          });
+          onPinCreated?.(newPin);
+          pinnedCount++;
+        }
+
+        if (pinnedCount > 0) {
+          const platformDisplay = formatPlatformName(scrapeResult.platform);
+          setStatusText(`Pinned ${pinnedCount} spots from ${platformDisplay}!`);
+          setState('success');
+          setInputValue('');
+          setTimeout(() => {
+            resetToIdle();
+          }, 2000);
+        } else {
+          setState('error');
+          setErrorMessage("Couldn't pin any of the extracted spots.");
         }
       } catch (err) {
         setState('error');
@@ -183,6 +207,7 @@ const MagicBar = forwardRef<MagicBarRef, MagicBarProps>(function MagicBar({ onPi
   );
 
   const isProcessing = state === 'processing';
+  const showStatusText = state === 'processing' || (state === 'success' && statusText);
 
   return (
     <div className="fixed top-[max(1rem,env(safe-area-inset-top))] left-1/2 -translate-x-1/2 z-[40] flex flex-col items-center w-[90%] max-w-[400px]">
@@ -193,9 +218,9 @@ const MagicBar = forwardRef<MagicBarRef, MagicBarProps>(function MagicBar({ onPi
         transition={{ type: 'spring', stiffness: 400, damping: 30 }}
         className="relative flex items-center w-full rounded-full border border-border bg-surface/80 backdrop-blur-md shadow-xl px-4 py-2"
       >
-        {/* Sparkle icon — visible during processing */}
+        {/* Sparkle icon — visible during processing or success */}
         <AnimatePresence>
-          {isProcessing && (
+          {showStatusText && (
             <motion.span
               initial={{ opacity: 0, scale: 0.6 }}
               animate={{ opacity: 1, scale: 1 }}
@@ -215,18 +240,18 @@ const MagicBar = forwardRef<MagicBarRef, MagicBarProps>(function MagicBar({ onPi
           )}
         </AnimatePresence>
 
-        {/* Input field — hidden during processing, replaced by animated text */}
-        {isProcessing ? (
+        {/* Input field — hidden during processing/success, replaced by animated status text */}
+        {showStatusText ? (
           <motion.span
             key="processing-text"
             initial={{ opacity: 0 }}
-            animate={{ opacity: [0.5, 1, 0.5] }}
-            transition={{ duration: 1.8, repeat: Infinity, ease: 'easeInOut' }}
+            animate={isProcessing ? { opacity: [0.5, 1, 0.5] } : { opacity: 1 }}
+            transition={isProcessing ? { duration: 1.8, repeat: Infinity, ease: 'easeInOut' } : { duration: 0.3 }}
             className="flex-1 text-sm text-accent font-medium select-none"
             role="status"
             aria-live="polite"
           >
-            Processing…
+            {statusText || 'Processing…'}
           </motion.span>
         ) : (
           <input

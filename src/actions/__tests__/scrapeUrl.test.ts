@@ -15,6 +15,21 @@ vi.mock('puppeteer-core', () => ({
   },
 }));
 
+// Mock extractPlaces module
+const mockExtractPlacesWithAI = vi.fn();
+vi.mock('../extractPlaces', () => ({
+  detectPlatform: (url: string) => {
+    try {
+      const { hostname } = new URL(url);
+      if (hostname === 'instagram.com' || hostname.endsWith('.instagram.com')) return 'instagram';
+      if (hostname === 'v.douyin.com') return 'douyin';
+      if (hostname === 'xiaohongshu.com' || hostname.endsWith('.xiaohongshu.com') || hostname === 'xhslink.com' || hostname.endsWith('.xhslink.com')) return 'xiaohongshu';
+      return 'unknown';
+    } catch { return 'unknown'; }
+  },
+  extractPlacesWithAI: (...args: unknown[]) => mockExtractPlacesWithAI(...args),
+}));
+
 // Import after mocking
 import { scrapeUrl } from '../scrapeUrl';
 
@@ -50,6 +65,9 @@ describe('scrapeUrl', () => {
     mockSetViewport.mockResolvedValue(undefined);
     mockSetUserAgent.mockResolvedValue(undefined);
     mockGoto.mockResolvedValue(undefined);
+
+    // Default extractPlacesWithAI mock
+    mockExtractPlacesWithAI.mockResolvedValue([{ name: 'Default Place', contextualHints: [] }]);
   });
 
   afterEach(() => {
@@ -162,10 +180,11 @@ describe('scrapeUrl', () => {
     mockEvaluate.mockResolvedValueOnce('Beautiful Bali Temple');
     // extractImage → image URL
     mockEvaluate.mockResolvedValueOnce('https://example.com/bali.jpg');
-    // extractLocation → location string
-    mockEvaluate.mockResolvedValueOnce('Bali, Indonesia');
-    // extractContextualHints → hints array
-    mockEvaluate.mockResolvedValueOnce(['Bali', 'Indonesia', 'Temple']);
+
+    // extractPlacesWithAI returns extracted places
+    mockExtractPlacesWithAI.mockResolvedValueOnce([
+      { name: 'Bali Temple', contextualHints: ['Bali', 'Indonesia'] },
+    ]);
 
     const result = await scrapeUrl('https://example.com/bali-post');
 
@@ -174,8 +193,10 @@ describe('scrapeUrl', () => {
       title: 'Beautiful Bali Temple',
       description: null,
       imageUrl: 'https://example.com/bali.jpg',
-      location: 'Bali, Indonesia',
-      contextualHints: ['Bali', 'Indonesia', 'Temple'],
+      platform: 'unknown',
+      extractedPlaces: [
+        { name: 'Bali Temple', contextualHints: ['Bali', 'Indonesia'] },
+      ],
       sourceUrl: 'https://example.com/bali-post',
     });
   });
@@ -188,8 +209,8 @@ describe('scrapeUrl', () => {
       mockEvaluate.mockResolvedValueOnce(false);   // detectLoginWall
       mockEvaluate.mockResolvedValueOnce('Title');  // extractTitle
       mockEvaluate.mockResolvedValueOnce(null);     // extractImage
-      mockEvaluate.mockResolvedValueOnce('Paris');   // extractLocation
-      mockEvaluate.mockResolvedValueOnce([]);        // extractContextualHints
+
+      mockExtractPlacesWithAI.mockResolvedValueOnce([{ name: 'Paris', contextualHints: [] }]);
 
       await scrapeUrl('https://example.com');
 
@@ -213,8 +234,8 @@ describe('scrapeUrl', () => {
     mockEvaluate.mockResolvedValueOnce(false);          // detectLoginWall
     mockEvaluate.mockResolvedValueOnce('My Title');      // extractTitle
     mockEvaluate.mockResolvedValueOnce('https://img.jpg'); // extractImage
-    mockEvaluate.mockResolvedValueOnce('Tokyo, Japan');  // extractLocation
-    mockEvaluate.mockResolvedValueOnce(['Tokyo']);        // extractContextualHints
+
+    mockExtractPlacesWithAI.mockResolvedValueOnce([{ name: 'Tokyo', contextualHints: ['Japan'] }]);
 
     // Make browser.close() throw
     mockClose.mockRejectedValue(new Error('Close failed'));
@@ -227,8 +248,8 @@ describe('scrapeUrl', () => {
       title: 'My Title',
       description: null,
       imageUrl: 'https://img.jpg',
-      location: 'Tokyo, Japan',
-      contextualHints: ['Tokyo'],
+      platform: 'unknown',
+      extractedPlaces: [{ name: 'Tokyo', contextualHints: ['Japan'] }],
       sourceUrl: 'https://example.com/tokyo',
     });
   });
