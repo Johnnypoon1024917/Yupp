@@ -84,6 +84,7 @@ export default function DayContainer({ dayNumber, pins }: DayContainerProps) {
   return (
     <div
       ref={setNodeRef}
+      data-droppable-day={dayNumber}
       className={`rounded-card border p-4 transition-colors ${
         isOver ? 'border-accent bg-accent/5' : 'border-gray-200 bg-white'
       }`}
