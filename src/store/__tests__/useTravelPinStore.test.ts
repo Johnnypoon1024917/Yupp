@@ -1,7 +1,15 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import useTravelPinStore from '@/store/useTravelPinStore';
 import type { Pin, Collection } from '@/types';
 import type { User } from '@supabase/supabase-js';
+
+// Mock Supabase client for collection persistence tests
+const mockInsert = vi.fn().mockResolvedValue({ error: null });
+const mockFrom = vi.fn().mockReturnValue({ insert: mockInsert });
+
+vi.mock('@/utils/supabase/client', () => ({
+  createClient: () => ({ from: mockFrom }),
+}));
 
 describe('useTravelPinStore extensions', () => {
   beforeEach(() => {
@@ -86,6 +94,105 @@ describe('useTravelPinStore extensions', () => {
         expect(useTravelPinStore.getState().pins).toBeDefined();
         expect(useTravelPinStore.getState().collections).toBeDefined();
       }
+    });
+  });
+
+  describe('addPin with undefined primaryType (Requirement 2.6)', () => {
+    it('routes pin to the "Unorganized" collection when primaryType is undefined', () => {
+      const pin = useTravelPinStore.getState().addPin({
+        title: 'Mystery Place',
+        imageUrl: 'https://example.com/img.jpg',
+        sourceUrl: 'https://example.com',
+        latitude: 35.6762,
+        longitude: 139.6503,
+        // primaryType intentionally omitted (undefined)
+      });
+
+      expect(pin.collectionId).toBe('unorganized');
+
+      const unorganized = useTravelPinStore.getState().collections.find(
+        (c) => c.id === 'unorganized'
+      );
+      expect(unorganized).toBeDefined();
+      expect(unorganized!.name).toBe('Unorganized');
+    });
+  });
+
+  describe('Supabase collection persistence when authenticated (Requirement 2.4)', () => {
+    beforeEach(() => {
+      mockFrom.mockClear();
+      mockInsert.mockClear();
+    });
+
+    it('calls Supabase collections insert when a new collection is auto-created for an authenticated user', () => {
+      // Set an authenticated user
+      const mockUser = { id: 'user-abc', email: 'auth@example.com' } as User;
+      useTravelPinStore.getState().setUser(mockUser);
+
+      // Add a pin with a primaryType that maps to "Food & Drink" — a collection that doesn't exist yet
+      useTravelPinStore.getState().addPin({
+        title: 'Ramen Shop',
+        imageUrl: 'https://example.com/ramen.jpg',
+        sourceUrl: 'https://example.com/ramen',
+        latitude: 35.6762,
+        longitude: 139.6503,
+        primaryType: 'restaurant',
+      });
+
+      // Verify Supabase was called to persist the new collection
+      expect(mockFrom).toHaveBeenCalledWith('collections');
+      expect(mockInsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          user_id: 'user-abc',
+          name: 'Food & Drink',
+        })
+      );
+    });
+
+    it('does NOT call Supabase when user is not authenticated', () => {
+      // user is null by default from beforeEach
+      useTravelPinStore.getState().addPin({
+        title: 'Ramen Shop',
+        imageUrl: 'https://example.com/ramen.jpg',
+        sourceUrl: 'https://example.com/ramen',
+        latitude: 35.6762,
+        longitude: 139.6503,
+        primaryType: 'restaurant',
+      });
+
+      expect(mockFrom).not.toHaveBeenCalled();
+    });
+
+    it('does NOT call Supabase when the collection already exists', () => {
+      const mockUser = { id: 'user-abc', email: 'auth@example.com' } as User;
+      useTravelPinStore.getState().setUser(mockUser);
+
+      // Add first pin — creates "Food & Drink" collection and calls Supabase
+      useTravelPinStore.getState().addPin({
+        title: 'Ramen Shop',
+        imageUrl: 'https://example.com/ramen.jpg',
+        sourceUrl: 'https://example.com/ramen',
+        latitude: 35.6762,
+        longitude: 139.6503,
+        primaryType: 'restaurant',
+      });
+
+      // Clear mocks to isolate the second call
+      mockFrom.mockClear();
+      mockInsert.mockClear();
+
+      // Add second pin with same category — collection already exists
+      useTravelPinStore.getState().addPin({
+        title: 'Sushi Bar',
+        imageUrl: 'https://example.com/sushi.jpg',
+        sourceUrl: 'https://example.com/sushi',
+        latitude: 35.6895,
+        longitude: 139.6917,
+        primaryType: 'cafe',
+      });
+
+      // Should NOT call Supabase since "Food & Drink" already exists
+      expect(mockFrom).not.toHaveBeenCalled();
     });
   });
 });

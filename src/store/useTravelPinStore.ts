@@ -3,6 +3,8 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 import { v4 as uuidv4 } from 'uuid';
 import type { Pin, Collection } from '@/types';
 import type { User } from '@supabase/supabase-js';
+import { getCollectionForType } from '@/utils/categories';
+import { createClient } from '@/utils/supabase/client';
 
 export interface TravelPinStore {
   // State
@@ -43,13 +45,66 @@ const useTravelPinStore = create<TravelPinStore>()(
       user: null,
 
       addPin: (pinData) => {
+        const collectionName = getCollectionForType(pinData.primaryType);
+
+        // We need current state to find/create the collection
+        const currentState = useTravelPinStore.getState();
+        let targetCollection = currentState.collections.find(
+          (c) => c.name === collectionName
+        );
+
+        let newCollectionCreated = false;
+        if (!targetCollection) {
+          targetCollection = {
+            id: uuidv4(),
+            name: collectionName,
+            createdAt: new Date().toISOString(),
+          };
+          newCollectionCreated = true;
+        }
+
         const newPin: Pin = {
           ...pinData,
           id: uuidv4(),
           createdAt: new Date().toISOString(),
-          collectionId: 'unorganized',
+          collectionId: targetCollection.id,
         };
-        set((state) => ({ pins: [...state.pins, newPin] }));
+
+        set((state) => ({
+          pins: [...state.pins, newPin],
+          ...(newCollectionCreated
+            ? { collections: [...state.collections, targetCollection!] }
+            : {}),
+        }));
+
+        // Fire-and-forget Supabase persistence for auto-created collections
+        if (newCollectionCreated && currentState.user) {
+          const userId = currentState.user.id;
+          try {
+            const supabase = createClient();
+            supabase
+              .from('collections')
+              .insert({
+                id: targetCollection.id,
+                user_id: userId,
+                name: targetCollection.name,
+              })
+              .then(({ error }) => {
+                if (error) {
+                  console.error(
+                    '[addPin] Failed to persist auto-created collection:',
+                    error
+                  );
+                }
+              });
+          } catch (err) {
+            console.error(
+              '[addPin] Supabase client error:',
+              err
+            );
+          }
+        }
+
         return newPin;
       },
 

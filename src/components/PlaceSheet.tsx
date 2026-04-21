@@ -2,9 +2,21 @@
 
 import { useState, useCallback } from "react";
 import { Drawer } from "vaul";
-import { Share2, FolderOpen, Check } from "lucide-react";
+import { Share2, FolderOpen, Check, Utensils, Bed, Camera, ShoppingBag, MapPin } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import useTravelPinStore from "@/store/useTravelPinStore";
+import { getAffiliateLink } from "@/utils/affiliateLinks";
+import { getCategoryGradient, getCategoryIcon } from "@/utils/categories";
+import { trackReferralClick } from "@/actions/trackReferralClick";
 import type { Pin } from "@/types";
+
+const ICON_MAP: Record<string, LucideIcon> = {
+  utensils: Utensils,
+  bed: Bed,
+  camera: Camera,
+  "shopping-bag": ShoppingBag,
+  "map-pin": MapPin,
+};
 
 export interface PlaceSheetProps {
   pin: Pin | null;
@@ -19,9 +31,13 @@ export default function PlaceSheet({ pin, onDismiss }: PlaceSheetProps) {
 
   const [collectionPickerOpen, setCollectionPickerOpen] = useState(false);
 
+  const affiliateResult = pin ? getAffiliateLink(pin) : null;
+
   const currentCollection = collections.find(
     (c) => c.id === pin?.collectionId
   );
+
+  const collectionName = currentCollection?.name ?? "Unorganized";
 
   const handleRemove = useCallback(() => {
     if (!pin) return;
@@ -96,25 +112,40 @@ export default function PlaceSheet({ pin, onDismiss }: PlaceSheetProps) {
               </button>
 
               {/* Hero image — 4:5 aspect-ratio-safe container with blurred backdrop */}
-              <div className="relative w-full aspect-[4/5] bg-[#F4F4F5] overflow-hidden">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={pin.imageUrl}
-                  className="absolute inset-0 w-full h-full object-cover blur-2xl opacity-30 scale-110"
-                  aria-hidden="true"
-                  alt=""
-                />
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={pin.imageUrl}
-                  alt={pin.title}
-                  className="relative w-full h-full object-contain"
-                />
-                <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-white to-transparent" />
-              </div>
+              {pin.imageUrl ? (
+                <div className="relative w-full aspect-[4/5] bg-[#F4F4F5] overflow-hidden">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={pin.imageUrl}
+                    className="absolute inset-0 w-full h-full object-cover blur-2xl opacity-30 scale-110"
+                    aria-hidden="true"
+                    alt=""
+                  />
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={pin.imageUrl}
+                    alt={pin.title}
+                    className="relative w-full h-full object-contain"
+                  />
+                  <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-white to-transparent" />
+                </div>
+              ) : (
+                <div className={`relative w-full aspect-[4/5] ${getCategoryGradient(collectionName)} overflow-hidden flex items-center justify-center`}>
+                  {(() => {
+                    const IconComponent = ICON_MAP[getCategoryIcon(collectionName)] ?? ICON_MAP["map-pin"];
+                    return <IconComponent size={64} className="text-white/70" />;
+                  })()}
+                  <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-white to-transparent" />
+                </div>
+              )}
 
               {/* Content — strict hierarchy: Brand → Context → Badges → Vibe */}
               <div className="px-[24px] pt-[20px] pb-[40px] flex flex-col">
+                {/* Category pill */}
+                <span className="inline-flex self-start rounded-full px-3 py-1 bg-gray-100 text-gray-700 text-[12px] font-semibold mb-[8px]">
+                  {collectionName}
+                </span>
+
                 {/* 1. The Brand (Title) */}
                 <h2
                   className="text-[26px] leading-[30px] font-extrabold tracking-[-0.8px] text-[#111111]"
@@ -122,6 +153,13 @@ export default function PlaceSheet({ pin, onDismiss }: PlaceSheetProps) {
                 >
                   {pin.title}
                 </h2>
+
+                {/* Social proof badge */}
+                {pin.rating != null && pin.rating > 4.5 && (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-orange-50 text-orange-700 text-[11px] font-bold rounded-full mt-[6px] self-start">
+                    🔥 Popular
+                  </span>
+                )}
 
                 {/* 2. The Context (Location) */}
                 {pin.address && (
@@ -193,6 +231,26 @@ export default function PlaceSheet({ pin, onDismiss }: PlaceSheetProps) {
                       {new URL(pin.sourceUrl).hostname}
                     </span>
                   </p>
+                )}
+
+                {/* Affiliate section — Plan Your Visit */}
+                {affiliateResult && (
+                  <div className="mt-[20px]">
+                    <h3 className="text-[13px] font-bold text-[#3F3F46] uppercase tracking-[0.5px] mb-[10px]">
+                      Plan Your Visit
+                    </h3>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        window.open(affiliateResult.url, '_blank', 'noopener,noreferrer');
+                        trackReferralClick({ pinId: pin!.id, platformName: affiliateResult.platformName });
+                      }}
+                      className="w-full h-[48px] rounded-[14px] text-[14px] font-bold text-white flex items-center justify-center transition-all active:scale-[0.97]"
+                      style={{ backgroundColor: affiliateResult.bgColor }}
+                    >
+                      {affiliateResult.label}
+                    </button>
+                  </div>
                 )}
 
                 {/* Divider */}

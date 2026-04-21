@@ -5,7 +5,7 @@ import { useDraggable } from '@dnd-kit/core';
 import { motion } from 'framer-motion';
 import { Search, GripVertical, MapPin } from 'lucide-react';
 import useTravelPinStore from '@/store/useTravelPinStore';
-import type { Pin } from '@/types';
+import type { Pin, Collection } from '@/types';
 
 interface SavedLibraryProps {
   className?: string;
@@ -25,7 +25,7 @@ export function extractRegion(address: string | undefined): string {
  * Groups pins by their derived city/region key.
  */
 export function groupPinsByRegion(pins: Pin[]): Record<string, Pin[]> {
-  const groups: Record<string, Pin[]> = {};
+  const groups: Record<string, Pin[]> = Object.create(null);
   for (const pin of pins) {
     const region = extractRegion(pin.address);
     if (!groups[region]) groups[region] = [];
@@ -47,19 +47,69 @@ export function filterPins(pins: Pin[], query: string): Pin[] {
   );
 }
 
+/**
+ * Groups pins by their collection name. Looks up each pin's collectionId
+ * in the provided collections array. Falls back to "Unknown" if no match.
+ */
+export function groupPinsByCategory(
+  pins: Pin[],
+  collections: Collection[]
+): Record<string, Pin[]> {
+  const collectionMap = new Map(collections.map((c) => [c.id, c.name]));
+  const groups: Record<string, Pin[]> = Object.create(null);
+  for (const pin of pins) {
+    const name = collectionMap.get(pin.collectionId) ?? 'Unknown';
+    if (!groups[name]) groups[name] = [];
+    groups[name].push(pin);
+  }
+  return groups;
+}
+
 export default function SavedLibrary({ className }: SavedLibraryProps) {
   const pins = useTravelPinStore((s) => s.pins);
+  const collections = useTravelPinStore((s) => s.collections);
   const [search, setSearch] = useState('');
+  const [groupMode, setGroupMode] = useState<'region' | 'category'>('region');
 
   const filteredGroups = useMemo(() => {
     const filtered = filterPins(pins, search);
-    return groupPinsByRegion(filtered);
-  }, [pins, search]);
+    return groupMode === 'region'
+      ? groupPinsByRegion(filtered)
+      : groupPinsByCategory(filtered, collections);
+  }, [pins, collections, search, groupMode]);
 
-  const regionNames = Object.keys(filteredGroups).sort();
+  const groupNames = Object.keys(filteredGroups).sort();
 
   return (
     <div className={`flex flex-col ${className ?? ''}`}>
+      {/* Segmented toggle */}
+      <div className="p-3 pb-0">
+        <div className="flex rounded-lg bg-neutral-100 p-0.5">
+          <button
+            type="button"
+            onClick={() => setGroupMode('region')}
+            className={`flex-1 text-xs font-medium py-1.5 rounded-md transition-colors ${
+              groupMode === 'region'
+                ? 'bg-white text-primary shadow-sm'
+                : 'text-neutral-500 hover:text-neutral-700'
+            }`}
+          >
+            Region
+          </button>
+          <button
+            type="button"
+            onClick={() => setGroupMode('category')}
+            className={`flex-1 text-xs font-medium py-1.5 rounded-md transition-colors ${
+              groupMode === 'category'
+                ? 'bg-white text-primary shadow-sm'
+                : 'text-neutral-500 hover:text-neutral-700'
+            }`}
+          >
+            Category
+          </button>
+        </div>
+      </div>
+
       {/* Search input */}
       <div className="p-3 border-b border-border">
         <div className="relative">
@@ -76,26 +126,26 @@ export default function SavedLibrary({ className }: SavedLibraryProps) {
 
       {/* Scrollable pin list */}
       <div className="flex-1 overflow-y-auto p-3 space-y-4">
-        {regionNames.length === 0 && (
+        {groupNames.length === 0 && (
           <p className="text-sm text-neutral-400 text-center py-8">
             {pins.length === 0 ? 'No saved pins yet' : 'No pins match your search'}
           </p>
         )}
 
-        {regionNames.map((region) => (
-          <div key={region}>
+        {groupNames.map((group) => (
+          <div key={group}>
             <div className="flex items-center gap-1.5 mb-2">
               <MapPin className="w-3.5 h-3.5 text-accent" />
               <h3 className="text-xs font-semibold text-neutral-500 uppercase tracking-wide">
-                {region}
+                {group}
               </h3>
               <span className="text-xs text-neutral-400">
-                ({filteredGroups[region].length})
+                ({filteredGroups[group].length})
               </span>
             </div>
 
             <div className="grid grid-cols-2 gap-2">
-              {filteredGroups[region].map((pin) => (
+              {filteredGroups[group].map((pin) => (
                 <PinCard key={pin.id} pin={pin} />
               ))}
             </div>
