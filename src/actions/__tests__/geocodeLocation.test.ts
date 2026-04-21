@@ -1,5 +1,15 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
+// Mock next/headers before importing geocodeLocation
+vi.mock('next/headers', () => ({
+  headers: vi.fn().mockResolvedValue(new Map([['x-forwarded-for', '127.0.0.1']])),
+}));
+
+// Mock rateLimit to always allow requests in these tests
+vi.mock('../rateLimit', () => ({
+  checkRateLimit: vi.fn().mockReturnValue(true),
+}));
+
 // We need to import after setting up the environment
 import { geocodeLocation } from '../geocodeLocation';
 

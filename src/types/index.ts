@@ -79,3 +79,9 @@ export type PlannedPin = Pin & {
   sort_order: number;
   itinerary_item_id: string;
 };
+
+/** Data shape for a publicly shared trip, used by the Public Trip Page. */
+export interface PublicTripData {
+  itinerary: Itinerary & { isPublic: boolean };
+  plannedPins: PlannedPin[];
+}

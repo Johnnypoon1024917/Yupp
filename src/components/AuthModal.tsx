@@ -8,9 +8,10 @@ import { createClient } from "@/utils/supabase/client";
 export interface AuthModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  message?: string;
 }
 
-export default function AuthModal({ open, onOpenChange }: AuthModalProps) {
+export default function AuthModal({ open, onOpenChange, message }: AuthModalProps) {
   const user = useTravelPinStore((s) => s.user);
   const setUser = useTravelPinStore((s) => s.setUser);
 
@@ -63,13 +64,18 @@ export default function AuthModal({ open, onOpenChange }: AuthModalProps) {
                 </button>
               </div>
             ) : (
-              <button
-                type="button"
-                onClick={handleSignIn}
-                className="w-full rounded-xl bg-accent py-3 text-sm font-medium text-white transition-colors hover:bg-indigo-600"
-              >
-                Sign in with Google
-              </button>
+              <div className="flex flex-col items-center gap-4">
+                {message && (
+                  <p className="text-sm text-gray-600 text-center">{message}</p>
+                )}
+                <button
+                  type="button"
+                  onClick={handleSignIn}
+                  className="w-full rounded-xl bg-accent py-3 text-sm font-medium text-white transition-colors hover:bg-indigo-600"
+                >
+                  Sign in with Google
+                </button>
+              </div>
             )}
           </div>
         </Drawer.Content>

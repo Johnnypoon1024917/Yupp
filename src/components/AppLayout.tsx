@@ -10,6 +10,7 @@ import ProfileSheet from '@/components/ProfileSheet';
 import DiscoverFeed from '@/components/DiscoverFeed';
 import CollectionDrawer from '@/components/CollectionDrawer';
 import PlannerSidebar from '@/components/PlannerSidebar';
+import AuthModal from '@/components/AuthModal';
 import useCloudSync from '@/hooks/useCloudSync';
 import usePlannerDnd from '@/hooks/usePlannerDnd';
 import useTravelPinStore from '@/store/useTravelPinStore';
@@ -27,6 +28,8 @@ export default function AppLayout() {
   const [isDiscoverOpen, setIsDiscoverOpen] = useState(false);
   const [isPlannerOpen, setIsPlannerOpen] = useState(false);
   const [isCollectionDrawerOpen, setIsCollectionDrawerOpen] = useState(false);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [authModalMessage, setAuthModalMessage] = useState<string | undefined>(undefined);
   const itinerariesLoadedRef = useRef(false);
 
   const fetchItineraries = usePlannerStore((s) => s.fetchItineraries);
@@ -45,6 +48,14 @@ export default function AppLayout() {
   const handleTabChange = useCallback(
     (tab: 'discover' | 'add' | 'plan' | 'profile') => {
       if (tab === 'plan') {
+        // Login gateway: check auth before opening planner
+        const user = useTravelPinStore.getState().user;
+        if (!user) {
+          setAuthModalMessage('Log in to save and plan your own trips.');
+          setIsAuthModalOpen(true);
+          return;
+        }
+
         if (isPlannerOpen) {
           // Toggle OFF
           setIsPlannerOpen(false);
@@ -152,6 +163,13 @@ export default function AppLayout() {
 
         {/* z-50: Discover feed — pin image grid */}
         <DiscoverFeed open={isDiscoverOpen} onOpenChange={handleDiscoverOpenChange} />
+
+        {/* Auth modal for login gateway */}
+        <AuthModal
+          open={isAuthModalOpen}
+          onOpenChange={setIsAuthModalOpen}
+          message={authModalMessage}
+        />
 
         <DragOverlay dropAnimation={null} zIndex={85}>
           {activeDrag ? <DragPreview data={activeDrag} /> : null}

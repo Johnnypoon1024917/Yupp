@@ -24,6 +24,7 @@ export interface PlannerStore {
   saveItinerary: () => Promise<void>;
   deleteItinerary: (itineraryId: string) => Promise<void>;
   renameItinerary: (itineraryId: string, newName: string) => Promise<void>;
+  cloneItinerary: (sourceItineraryId: string) => Promise<string | null>;
 }
 
 /** Recalculate sort_order for all pins in an array (index-based: 0, 1, 2, ...). */
@@ -352,6 +353,83 @@ const usePlannerStore = create<PlannerStore>()((set) => ({
           ? { ...state.activeItinerary, name: newName }
           : state.activeItinerary,
     }));
+  },
+
+  cloneItinerary: async (sourceItineraryId) => {
+    const supabase = createClient();
+
+    // Check authentication
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      console.error('[PlannerStore] cloneItinerary: No authenticated user');
+      return null;
+    }
+
+    // Fetch source itinerary (RLS allows SELECT on public itineraries)
+    const { data: sourceItinerary, error: itinError } = await supabase
+      .from('itineraries')
+      .select('*')
+      .eq('id', sourceItineraryId)
+      .single();
+
+    if (itinError || !sourceItinerary) {
+      console.error('[PlannerStore] cloneItinerary: Failed to fetch source itinerary:', itinError?.message);
+      return null;
+    }
+
+    // Fetch source itinerary items with pins
+    const { data: sourceItems, error: itemsError } = await supabase
+      .from('itinerary_items')
+      .select('*, pins(*)')
+      .eq('itinerary_id', sourceItineraryId)
+      .order('day_number', { ascending: true })
+      .order('sort_order', { ascending: true });
+
+    if (itemsError) {
+      console.error('[PlannerStore] cloneItinerary: Failed to fetch source items:', itemsError.message);
+      return null;
+    }
+
+    // Create new itinerary owned by the current user with the same name
+    const { data: newItinerary, error: createError } = await supabase
+      .from('itineraries')
+      .insert({
+        user_id: user.id,
+        name: sourceItinerary.name,
+        trip_date: sourceItinerary.trip_date ?? null,
+      })
+      .select()
+      .single();
+
+    if (createError || !newItinerary) {
+      console.error('[PlannerStore] cloneItinerary: Failed to create new itinerary:', createError?.message);
+      return null;
+    }
+
+    // Batch-insert new itinerary_items preserving day_number and sort_order
+    const items = sourceItems ?? [];
+    if (items.length > 0) {
+      const rows = items.map((item) => ({
+        itinerary_id: newItinerary.id,
+        pin_id: item.pin_id,
+        day_number: item.day_number,
+        sort_order: item.sort_order,
+      }));
+
+      const { error: insertError } = await supabase
+        .from('itinerary_items')
+        .insert(rows);
+
+      if (insertError) {
+        console.error('[PlannerStore] cloneItinerary: Failed to insert items:', insertError.message);
+        return newItinerary.id;
+      }
+    }
+
+    // Load the cloned itinerary into the store
+    await usePlannerStore.getState().loadItinerary(newItinerary.id);
+
+    return newItinerary.id;
   },
 }));
 

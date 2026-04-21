@@ -1,6 +1,8 @@
 'use server';
 
+import { headers } from 'next/headers';
 import { GeocodeResult } from '@/types';
+import { checkRateLimit } from '@/actions/rateLimit';
 
 const GOOGLE_PLACES_URL = 'https://places.googleapis.com/v1/places:searchText';
 const FIELD_MASK = 'places.location,places.displayName,places.formattedAddress,places.primaryType,places.rating,places.id,places.userRatingCount';
@@ -84,6 +86,16 @@ export async function geocodeLocation(input: {
   partialData?: { title: string; imageUrl: string | null };
 }): Promise<GeocodeResult> {
   const { location, contextualHints, partialData } = input;
+
+  // Rate limit guard — extract IP from request headers
+  const headersList = await headers();
+  const ip = headersList.get('x-forwarded-for')?.split(',')[0]?.trim()
+    || headersList.get('x-real-ip')
+    || 'unknown';
+
+  if (!checkRateLimit(ip)) {
+    return { status: 'error', error: 'Too many requests. Please slow down!' };
+  }
 
   console.log('[geocodeLocation] Called with:', { location, contextualHints, partialData: !!partialData });
 
