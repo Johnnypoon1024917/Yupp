@@ -73,6 +73,10 @@ export async function extractTitle(page: Page): Promise<string> {
 
 /**
  * Extract image: og:image → first large <img> (skip width/height < 100) → null
+ *
+ * Falls back to data-src / srcset attributes when the standard src is missing
+ * or the image dimensions are too small — common on lazy-loaded social media
+ * thumbnails.
  */
 export async function extractImage(page: Page): Promise<string | null> {
   return page.evaluate(() => {
@@ -81,16 +85,26 @@ export async function extractImage(page: Page): Promise<string | null> {
 
     const images = document.querySelectorAll('img');
     for (const img of Array.from(images)) {
-      const src = img.getAttribute('src');
-      if (!src) continue;
-
       const width = parseInt(img.getAttribute('width') || '0', 10);
       const height = parseInt(img.getAttribute('height') || '0', 10);
 
       // Skip small images (icons, spacers)
       if ((width > 0 && width < 100) || (height > 0 && height < 100)) continue;
 
-      return src;
+      // Try standard src first
+      const src = img.getAttribute('src');
+      if (src?.trim()) return src.trim();
+
+      // Fallback: data-src (lazy-loaded images)
+      const dataSrc = img.getAttribute('data-src');
+      if (dataSrc?.trim()) return dataSrc.trim();
+
+      // Fallback: first URL from srcset
+      const srcset = img.getAttribute('srcset');
+      if (srcset?.trim()) {
+        const firstEntry = srcset.split(',')[0]?.trim().split(/\s+/)[0];
+        if (firstEntry) return firstEntry;
+      }
     }
 
     return null;

@@ -113,15 +113,17 @@ const MagicBar = forwardRef<MagicBarRef, MagicBarProps>(function MagicBar({ onPi
 
         // Step 4: Add pins for each successfully geocoded place
         let pinnedCount = 0;
+        let usedPlaceholder = false;
         for (const result of geocodeResults) {
           if (result.status !== 'fulfilled') continue;
           const geocodeResult = result.value;
           if (geocodeResult.status !== 'success') continue;
 
+          const resolvedImageUrl = scrapeResult.imageUrl ?? '/placeholder-pin.svg';
           const newPin = addPin({
             title: scrapeResult.title,
             description: scrapeResult.description ?? undefined,
-            imageUrl: scrapeResult.imageUrl ?? '/placeholder-pin.svg',
+            imageUrl: resolvedImageUrl,
             sourceUrl: scrapeResult.sourceUrl,
             latitude: geocodeResult.lat,
             longitude: geocodeResult.lng,
@@ -131,6 +133,9 @@ const MagicBar = forwardRef<MagicBarRef, MagicBarProps>(function MagicBar({ onPi
             rating: geocodeResult.enrichedData.rating,
           });
           onPinCreated?.(newPin);
+          if (!scrapeResult.imageUrl) {
+            usedPlaceholder = true;
+          }
           pinnedCount++;
         }
 
@@ -139,6 +144,9 @@ const MagicBar = forwardRef<MagicBarRef, MagicBarProps>(function MagicBar({ onPi
           setStatusText(`Pinned ${pinnedCount} spots from ${platformDisplay}!`);
           setState('success');
           setInputValue('');
+          if (usedPlaceholder) {
+            addToast("Image couldn't be loaded from this link — we used a placeholder instead.", "error");
+          }
           setTimeout(() => {
             resetToIdle();
           }, 2000);
