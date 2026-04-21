@@ -11,6 +11,7 @@ interface TripTimelineProps {
 export default function TripTimeline({ className }: TripTimelineProps) {
   const dayItems = usePlannerStore((s) => s.dayItems);
   const addDay = usePlannerStore((s) => s.addDay);
+  const isLoadingItinerary = usePlannerStore((s) => s.isLoadingItinerary);
 
   const dayNumbers = Object.keys(dayItems)
     .map(Number)
@@ -25,7 +26,7 @@ export default function TripTimeline({ className }: TripTimelineProps) {
       ) : (
         <div className="space-y-6">
           {dayNumbers.map((day) => (
-            <DayContainer key={day} dayNumber={day} pins={dayItems[day] ?? []} />
+            <DayContainer key={day} dayNumber={day} pins={dayItems[day] ?? []} isLoading={isLoadingItinerary} />
           ))}
         </div>
       )}

@@ -1,0 +1,41 @@
+# Tasks
+
+- [x] 1. Create PinCardSkeleton component
+  - [x] 1.1 Create `src/components/planner/PinCardSkeleton.tsx` with a 64×64 `bg-neutral-100 animate-pulse rounded-lg` image placeholder and a text-width `bg-neutral-100 animate-pulse rounded` title placeholder, matching TimelineCard layout
+- [x] 2. Add loading state to usePlannerStore and TripTimeline
+  - [x] 2.1 Add `isLoadingItinerary: boolean` field to `usePlannerStore` state, defaulting to `false`
+  - [x] 2.2 Update `loadItinerary` in `usePlannerStore` to set `isLoadingItinerary = true` before the Supabase fetch and `false` after resolve or reject
+  - [x] 2.3 Add optional `isLoading?: boolean` prop to `DayContainer`; when true, render 3 `PinCardSkeleton` components instead of the sortable pin list
+  - [x] 2.4 Update `TripTimeline` to read `isLoadingItinerary` from the store and pass `isLoading={true}` to each `DayContainer` while loading; on load failure, show empty day state
+- [x] 3. Create toast notification system
+  - [x] 3.1 Create `src/store/useToastStore.ts` with `Toast` type (`id`, `message`, `variant`, `createdAt`), `addToast` (enforces max 3, auto-dismiss after 4s), and `removeToast` actions
+  - [x] 3.2 Create `src/components/ToastContainer.tsx` that reads from `useToastStore`, renders up to 3 toasts at `fixed bottom-6 left-1/2 -translate-x-1/2 z-50`, each with `role="status"` and `aria-live="polite"`, using `framer-motion` `AnimatePresence` for slide-up/fade-in enter and slide-down/fade-out exit animations
+  - [x] 3.3 Mount `<ToastContainer />` in `src/app/layout.tsx` inside `<body>` after `{children}`
+- [x] 4. Implement optimistic UI for drag-and-drop with rollback
+  - [x] 4.1 Add `isSaving: boolean` field to `usePlannerStore` state, defaulting to `false`
+  - [x] 4.2 Refactor `reorderPinInDay` to capture a `dayItems` snapshot before mutation, apply the mutation synchronously, then fire `saveItinerary` in the background; on failure, rollback to snapshot and call `addToast("Sync failed. Reverting changes.", "error")`
+  - [x] 4.3 Refactor `movePinBetweenDays` with the same optimistic pattern: snapshot → synchronous mutation → background save → rollback + toast on failure
+- [x] 5. Refactor MagicBar error handling to use toast system
+  - [x] 5.1 Remove the inline `<motion.p>` error element from `MagicBar`
+  - [x] 5.2 Import `useToastStore` in `MagicBar` and replace all `setState('error')` + `setErrorMessage(...)` calls with `addToast(...)` using user-friendly messages: scrapeUrl failure → friendly copy, all-geocode failure → "Our AI is currently taking a coffee break. We saved the link to your unorganized collection instead!", network error → "Something went wrong. Please try again in a moment."
+  - [x] 5.3 After displaying an error toast, reset MagicBar internal state to `idle` within 300ms using `setTimeout`
+- [x] 6. Create empty state illustration for DraftingTable
+  - [x] 6.1 Create `src/components/planner/EmptyState.tsx` with a centered `MapPin` icon and the text "Your canvas is empty. Paste a TikTok or Xiaohongshu link to start building your dream trip." using `text-neutral-400 text-[13px]`, vertically centered in the container
+  - [x] 6.2 Update `DraftingTable` to read `dayItems` from `usePlannerStore`, compute whether all days have zero pins, and conditionally render `<EmptyState />` instead of `<TripTimeline />` when empty
+- [x] 7. Write property-based tests
+  - [x] 7.1 [PBT] Property 1 — Synchronous local mutation: generate random `dayItems` and valid reorder/move params with `fast-check`, verify state updates synchronously before async resolves (min 100 iterations)
+  - [x] 7.2 [PBT] Property 2 — Optimistic rollback round-trip: generate random `dayItems` and valid mutations, apply mutation then rollback, assert deep equality with pre-mutation state (min 100 iterations)
+  - [x] 7.3 [PBT] Property 3 — Non-blocking mutation queue: generate random mutation sequences, apply all while save is pending, verify all reflected in local state (min 100 iterations)
+  - [x] 7.4 [PBT] Property 4 — Toast queue capacity invariant: generate random `addToast` sequences, verify `toasts.length <= 3` after each call (min 100 iterations)
+  - [x] 7.5 [PBT] Property 5 — Error message sanitization: generate random error strings, verify toast message differs from raw error (min 100 iterations)
+  - [x] 7.6 [PBT] Property 6 — Empty state iff zero pins: generate random `dayItems` with varying day/pin counts, verify empty state condition matches `allPinsCount === 0` (min 100 iterations)
+  - [x] 7.7 [PBT] Property 7 — dayItems JSON serialization round-trip: generate random `dayItems`, JSON round-trip, assert deep equality (min 100 iterations)
+  - [x] 7.8 [PBT] Property 8 — Skeleton/card mutual exclusivity: generate random loading state + dayItems, verify only skeletons or only real cards render (min 100 iterations)
+- [x] 8. Write unit tests
+  - [x] 8.1 Unit tests for `PinCardSkeleton`: verify `animate-pulse`, `bg-neutral-100` classes, and 64×64 dimension classes are present
+  - [x] 8.2 Unit tests for `EmptyState`: verify correct text content and MapPin icon presence
+  - [x] 8.3 Unit tests for `useToastStore`: verify addToast creates toast, removeToast removes it, auto-dismiss after 4s (fake timers), max 3 enforcement, and all three variants accepted
+  - [x] 8.4 Unit tests for `ToastContainer`: verify `role="status"` and `aria-live="polite"` attributes on rendered toasts
+  - [x] 8.5 Unit tests for MagicBar error handling: verify scrapeUrl failure triggers toast (not inline error), all-geocode failure shows coffee break message, network error shows generic message, no `<motion.p>` error element in DOM, state resets to idle within 300ms
+  - [x] 8.6 Unit tests for DraftingTable empty state: verify EmptyState renders when all days empty, TripTimeline renders when any day has pins
+  - [x] 8.7 Unit tests for TripTimeline/DayContainer loading: verify 3 skeletons per day during loading, real cards after load completes

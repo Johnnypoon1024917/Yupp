@@ -11,10 +11,12 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { GripVertical, MapPin } from 'lucide-react';
 import type { PlannedPin } from '@/types';
 import BridgeElement from './BridgeElement';
+import PinCardSkeleton from './PinCardSkeleton';
 
 export interface DayContainerProps {
   dayNumber: number;
   pins: PlannedPin[];
+  isLoading?: boolean;
 }
 
 /** TimelineCard: horizontal card — Image [64px x 64px rounded-lg] | Title | Drag Handle */
@@ -73,7 +75,7 @@ function TimelineCard({ pin }: { pin: PlannedPin }) {
 }
 
 /** Day container: droppable zone wrapping a SortableContext for planned pins. */
-export default function DayContainer({ dayNumber, pins }: DayContainerProps) {
+export default function DayContainer({ dayNumber, pins, isLoading }: DayContainerProps) {
   const { setNodeRef, isOver } = useDroppable({
     id: `day-${dayNumber}`,
     data: { type: 'day-container', dayNumber },
@@ -83,10 +85,10 @@ export default function DayContainer({ dayNumber, pins }: DayContainerProps) {
 
   return (
     <div
-      ref={setNodeRef}
+      ref={isLoading ? undefined : setNodeRef}
       data-droppable-day={dayNumber}
       className={`rounded-card border p-4 transition-colors ${
-        isOver ? 'border-accent bg-accent/5' : 'border-gray-200 bg-white'
+        isOver && !isLoading ? 'border-accent bg-accent/5' : 'border-gray-200 bg-white'
       }`}
     >
       {/* Yaay Standard day header */}
@@ -94,33 +96,41 @@ export default function DayContainer({ dayNumber, pins }: DayContainerProps) {
         Day {dayNumber}
       </h3>
 
-      <SortableContext items={sortableIds} strategy={verticalListSortingStrategy}>
-        {pins.length === 0 ? (
-          <p className="text-[13px] text-neutral-400 py-6 text-center border border-dashed border-gray-200 rounded-lg">
-            Drag pins here to plan your day
-          </p>
-        ) : (
-          <div className="flex flex-col gap-0">
-            <AnimatePresence initial={false}>
-              {pins.map((pin, index) => (
-                <motion.div
-                  key={pin.itinerary_item_id}
-                  layout
-                  initial={{ opacity: 0, y: -8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: 8, scale: 0.95 }}
-                  transition={{ duration: 0.2, layout: { duration: 0.25 } }}
-                >
-                  <TimelineCard pin={pin} />
-                  {index < pins.length - 1 && (
-                    <BridgeElement />
-                  )}
-                </motion.div>
-              ))}
-            </AnimatePresence>
-          </div>
-        )}
-      </SortableContext>
+      {isLoading ? (
+        <div className="flex flex-col gap-2">
+          {[0, 1, 2].map((i) => (
+            <PinCardSkeleton key={`skeleton-${i}`} />
+          ))}
+        </div>
+      ) : (
+        <SortableContext items={sortableIds} strategy={verticalListSortingStrategy}>
+          {pins.length === 0 ? (
+            <p className="text-[13px] text-neutral-400 py-6 text-center border border-dashed border-gray-200 rounded-lg">
+              Drag pins here to plan your day
+            </p>
+          ) : (
+            <div className="flex flex-col gap-0">
+              <AnimatePresence initial={false}>
+                {pins.map((pin, index) => (
+                  <motion.div
+                    key={pin.itinerary_item_id}
+                    layout
+                    initial={{ opacity: 0, y: -8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 8, scale: 0.95 }}
+                    transition={{ duration: 0.2, layout: { duration: 0.25 } }}
+                  >
+                    <TimelineCard pin={pin} />
+                    {index < pins.length - 1 && (
+                      <BridgeElement />
+                    )}
+                  </motion.div>
+                ))}
+              </AnimatePresence>
+            </div>
+          )}
+        </SortableContext>
+      )}
     </div>
   );
 }

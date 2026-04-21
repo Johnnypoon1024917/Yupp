@@ -2,12 +2,15 @@ import { create } from 'zustand';
 import { v4 as uuidv4 } from 'uuid';
 import type { Pin, Itinerary, PlannedPin } from '@/types';
 import { createClient } from '@/utils/supabase/client';
+import useToastStore from '@/store/useToastStore';
 
 export interface PlannerStore {
   // State
   activeItinerary: Itinerary | null;
   dayItems: Record<number, PlannedPin[]>;
   hasUnsavedChanges: boolean;
+  isLoadingItinerary: boolean;
+  isSaving: boolean;
   itineraries: Itinerary[];
 
   // Local mutation actions
@@ -36,6 +39,8 @@ const usePlannerStore = create<PlannerStore>()((set) => ({
   activeItinerary: null,
   dayItems: {},
   hasUnsavedChanges: false,
+  isLoadingItinerary: false,
+  isSaving: false,
   itineraries: [],
 
   addPinToDay: (pin, dayNumber) => {
@@ -58,6 +63,9 @@ const usePlannerStore = create<PlannerStore>()((set) => ({
   },
 
   reorderPinInDay: (dayNumber, oldIndex, newIndex) => {
+    // Capture snapshot before mutation for rollback
+    const snapshot = usePlannerStore.getState().dayItems;
+
     set((state) => {
       const dayPins = [...(state.dayItems[dayNumber] ?? [])];
       if (oldIndex < 0 || oldIndex >= dayPins.length || newIndex < 0 || newIndex >= dayPins.length) {
@@ -73,9 +81,23 @@ const usePlannerStore = create<PlannerStore>()((set) => ({
         hasUnsavedChanges: true,
       };
     });
+
+    // Fire background save
+    set({ isSaving: true });
+    usePlannerStore.getState().saveItinerary()
+      .then(() => {
+        set({ isSaving: false });
+      })
+      .catch(() => {
+        set({ dayItems: snapshot, hasUnsavedChanges: true, isSaving: false });
+        useToastStore.getState().addToast("Sync failed. Reverting changes.", "error");
+      });
   },
 
   movePinBetweenDays: (sourceDay, targetDay, pinId, targetIndex) => {
+    // Capture snapshot before mutation for rollback
+    const snapshot = usePlannerStore.getState().dayItems;
+
     set((state) => {
       const sourcePins = [...(state.dayItems[sourceDay] ?? [])];
       const targetPins = [...(state.dayItems[targetDay] ?? [])];
@@ -96,6 +118,17 @@ const usePlannerStore = create<PlannerStore>()((set) => ({
         hasUnsavedChanges: true,
       };
     });
+
+    // Fire background save
+    set({ isSaving: true });
+    usePlannerStore.getState().saveItinerary()
+      .then(() => {
+        set({ isSaving: false });
+      })
+      .catch(() => {
+        set({ dayItems: snapshot, hasUnsavedChanges: true, isSaving: false });
+        useToastStore.getState().addToast("Sync failed. Reverting changes.", "error");
+      });
   },
 
   removePinFromDay: (dayNumber, pinId) => {
@@ -186,89 +219,99 @@ const usePlannerStore = create<PlannerStore>()((set) => ({
   },
 
   loadItinerary: async (itineraryId) => {
-    const supabase = createClient();
+    set({ isLoadingItinerary: true });
 
-    // Fetch the itinerary
-    const { data: itineraryRow, error: itinError } = await supabase
-      .from('itineraries')
-      .select('*')
-      .eq('id', itineraryId)
-      .single();
+    try {
+      const supabase = createClient();
 
-    if (itinError || !itineraryRow) {
-      console.error('[PlannerStore] loadItinerary failed:', itinError?.message);
-      return;
-    }
+      // Fetch the itinerary
+      const { data: itineraryRow, error: itinError } = await supabase
+        .from('itineraries')
+        .select('*')
+        .eq('id', itineraryId)
+        .single();
 
-    // Fetch items joined with pin data
-    const { data: itemRows, error: itemsError } = await supabase
-      .from('itinerary_items')
-      .select('*, pins(*)')
-      .eq('itinerary_id', itineraryId)
-      .order('day_number', { ascending: true })
-      .order('sort_order', { ascending: true });
+      if (itinError || !itineraryRow) {
+        console.error('[PlannerStore] loadItinerary failed:', itinError?.message);
+        set({ isLoadingItinerary: false });
+        return;
+      }
 
-    if (itemsError) {
-      console.error('[PlannerStore] loadItinerary items failed:', itemsError.message);
-      return;
-    }
+      // Fetch items joined with pin data
+      const { data: itemRows, error: itemsError } = await supabase
+        .from('itinerary_items')
+        .select('*, pins(*)')
+        .eq('itinerary_id', itineraryId)
+        .order('day_number', { ascending: true })
+        .order('sort_order', { ascending: true });
 
-    const itinerary: Itinerary = {
-      id: itineraryRow.id,
-      userId: itineraryRow.user_id,
-      name: itineraryRow.name,
-      tripDate: itineraryRow.trip_date,
-      createdAt: itineraryRow.created_at,
-    };
+      if (itemsError) {
+        console.error('[PlannerStore] loadItinerary items failed:', itemsError.message);
+        set({ isLoadingItinerary: false });
+        return;
+      }
 
-    // Group items by day_number, hydrate as PlannedPins
-    const dayItems: Record<number, PlannedPin[]> = {};
-    for (const item of itemRows ?? []) {
-      const pin = item.pins as Record<string, unknown>;
-      if (!pin) continue;
-
-      const plannedPin: PlannedPin = {
-        id: pin.id as string,
-        title: pin.title as string,
-        description: (pin.description as string) ?? undefined,
-        imageUrl: pin.image_url as string,
-        sourceUrl: pin.source_url as string,
-        latitude: pin.latitude as number,
-        longitude: pin.longitude as number,
-        collectionId: pin.collection_id as string,
-        createdAt: pin.created_at as string,
-        placeId: (pin.place_id as string) ?? undefined,
-        primaryType: (pin.primary_type as string) ?? undefined,
-        rating: (pin.rating as number) ?? undefined,
-        address: (pin.address as string) ?? undefined,
-        user_id: (pin.user_id as string) ?? undefined,
-        day_number: item.day_number,
-        sort_order: item.sort_order,
-        itinerary_item_id: item.id,
+      const itinerary: Itinerary = {
+        id: itineraryRow.id,
+        userId: itineraryRow.user_id,
+        name: itineraryRow.name,
+        tripDate: itineraryRow.trip_date,
+        createdAt: itineraryRow.created_at,
       };
 
-      const day = item.day_number as number;
-      if (!dayItems[day]) dayItems[day] = [];
-      dayItems[day].push(plannedPin);
-    }
+      // Group items by day_number, hydrate as PlannedPins
+      const dayItems: Record<number, PlannedPin[]> = {};
+      for (const item of itemRows ?? []) {
+        const pin = item.pins as Record<string, unknown>;
+        if (!pin) continue;
 
-    // Ensure at least day 1 exists
-    if (Object.keys(dayItems).length === 0) {
-      dayItems[1] = [];
-    }
+        const plannedPin: PlannedPin = {
+          id: pin.id as string,
+          title: pin.title as string,
+          description: (pin.description as string) ?? undefined,
+          imageUrl: pin.image_url as string,
+          sourceUrl: pin.source_url as string,
+          latitude: pin.latitude as number,
+          longitude: pin.longitude as number,
+          collectionId: pin.collection_id as string,
+          createdAt: pin.created_at as string,
+          placeId: (pin.place_id as string) ?? undefined,
+          primaryType: (pin.primary_type as string) ?? undefined,
+          rating: (pin.rating as number) ?? undefined,
+          address: (pin.address as string) ?? undefined,
+          user_id: (pin.user_id as string) ?? undefined,
+          day_number: item.day_number,
+          sort_order: item.sort_order,
+          itinerary_item_id: item.id,
+        };
 
-    set({
-      activeItinerary: itinerary,
-      dayItems,
-      hasUnsavedChanges: false,
-    });
+        const day = item.day_number as number;
+        if (!dayItems[day]) dayItems[day] = [];
+        dayItems[day].push(plannedPin);
+      }
+
+      // Ensure at least day 1 exists
+      if (Object.keys(dayItems).length === 0) {
+        dayItems[1] = [];
+      }
+
+      set({
+        activeItinerary: itinerary,
+        dayItems,
+        hasUnsavedChanges: false,
+        isLoadingItinerary: false,
+      });
+    } catch (error) {
+      console.error('[PlannerStore] loadItinerary unexpected error:', error);
+      set({ isLoadingItinerary: false });
+    }
   },
 
   saveItinerary: async () => {
     const { activeItinerary, dayItems } = usePlannerStore.getState();
     if (!activeItinerary) {
       console.error('[PlannerStore] No active itinerary to save');
-      return;
+      throw new Error('No active itinerary to save');
     }
 
     const supabase = createClient();
@@ -281,7 +324,7 @@ const usePlannerStore = create<PlannerStore>()((set) => ({
 
     if (deleteError) {
       console.error('[PlannerStore] saveItinerary delete failed:', deleteError.message);
-      return;
+      throw new Error(deleteError.message);
     }
 
     // Collect all items across all days
@@ -305,7 +348,7 @@ const usePlannerStore = create<PlannerStore>()((set) => ({
 
       if (insertError) {
         console.error('[PlannerStore] saveItinerary insert failed:', insertError.message);
-        return;
+        throw new Error(insertError.message);
       }
     }
 

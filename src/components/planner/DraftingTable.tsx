@@ -4,12 +4,16 @@ import { useState } from 'react';
 import { DndContext, DragOverlay, rectIntersection } from '@dnd-kit/core';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 import usePlannerDnd from '@/hooks/usePlannerDnd';
+import usePlannerStore from '@/store/usePlannerStore';
 import LibraryPane from './LibraryPane';
 import TripTimeline from './TripTimeline';
+import EmptyState from './EmptyState';
 
 export default function DraftingTable() {
   const { sensors, activeDrag, handleDragStart, handleDragEnd, DragPreview } =
     usePlannerDnd();
+  const dayItems = usePlannerStore((s) => s.dayItems);
+  const isEmpty = Object.values(dayItems).every((pins) => pins.length === 0);
 
   const [mobileLibOpen, setMobileLibOpen] = useState(true);
 
@@ -23,7 +27,11 @@ export default function DraftingTable() {
       {/* Desktop: side-by-side */}
       <div className="hidden md:flex w-full h-full">
         <LibraryPane className="w-[35%] h-full border-r border-gray-200 bg-white flex flex-col" />
-        <TripTimeline className="flex-1 h-full overflow-y-auto px-8 py-12" />
+        {isEmpty ? (
+          <EmptyState />
+        ) : (
+          <TripTimeline className="flex-1 h-full overflow-y-auto px-8 py-12" />
+        )}
       </div>
 
       {/* Mobile: vertical stack with collapsible library */}
@@ -42,7 +50,11 @@ export default function DraftingTable() {
         {mobileLibOpen && (
           <LibraryPane className="h-[40vh] bg-white border-b border-gray-200 flex flex-col shrink-0" />
         )}
-        <TripTimeline className="flex-1 min-h-0 overflow-y-auto px-4 py-6" />
+        {isEmpty ? (
+          <EmptyState />
+        ) : (
+          <TripTimeline className="flex-1 min-h-0 overflow-y-auto px-4 py-6" />
+        )}
       </div>
 
       <DragOverlay dropAnimation={null}>

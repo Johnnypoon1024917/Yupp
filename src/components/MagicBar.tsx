@@ -6,6 +6,7 @@ import { Sparkles } from 'lucide-react';
 import { scrapeUrl } from '@/actions/scrapeUrl';
 import { geocodeLocation } from '@/actions/geocodeLocation';
 import useTravelPinStore from '@/store/useTravelPinStore';
+import useToastStore from '@/store/useToastStore';
 import type { Pin } from '@/types';
 
 export type MagicBarState = 'idle' | 'processing' | 'needs_input' | 'error' | 'success';
@@ -41,7 +42,6 @@ export function isValidUrl(input: string): boolean {
 const MagicBar = forwardRef<MagicBarRef, MagicBarProps>(function MagicBar({ onPinCreated }, ref) {
   const [state, setState] = useState<MagicBarState>('idle');
   const [inputValue, setInputValue] = useState('');
-  const [errorMessage, setErrorMessage] = useState('');
   const [statusText, setStatusText] = useState('');
   const [isFocused, setIsFocused] = useState(false);
   const [partialData, setPartialData] = useState<{ title: string; imageUrl: string | null } | null>(null);
@@ -49,6 +49,7 @@ const MagicBar = forwardRef<MagicBarRef, MagicBarProps>(function MagicBar({ onPi
   const [sourceUrl, setSourceUrl] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
   const addPin = useTravelPinStore((s) => s.addPin);
+  const addToast = useToastStore((s) => s.addToast);
 
   useImperativeHandle(ref, () => ({
     focus: () => {
@@ -58,7 +59,6 @@ const MagicBar = forwardRef<MagicBarRef, MagicBarProps>(function MagicBar({ onPi
 
   const resetToIdle = useCallback(() => {
     setState('idle');
-    setErrorMessage('');
     setStatusText('');
     setPartialData(null);
     setClarificationValue('');
@@ -74,13 +74,12 @@ const MagicBar = forwardRef<MagicBarRef, MagicBarProps>(function MagicBar({ onPi
 
       // Validate URL
       if (!isValidUrl(trimmed)) {
-        setState('error');
-        setErrorMessage('Please enter a valid URL (e.g. https://example.com)');
+        addToast("Please enter a valid URL (e.g. https://example.com)", "error");
+        setTimeout(() => { resetToIdle(); }, 300);
         return;
       }
 
-      // Clear any previous error
-      setErrorMessage('');
+      // Clear any previous state
       setState('processing');
       setStatusText('Scanning for multiple spots...');
 
@@ -88,15 +87,15 @@ const MagicBar = forwardRef<MagicBarRef, MagicBarProps>(function MagicBar({ onPi
         // Step 1: Scrape the URL
         const scrapeResult = await scrapeUrl(trimmed);
         if (!scrapeResult.success) {
-          setState('error');
-          setErrorMessage(scrapeResult.error);
+          addToast("We couldn't read that link. Try pasting a different one.", "error");
+          setTimeout(() => { resetToIdle(); }, 300);
           return;
         }
 
         // Step 2: Check for extracted places
         if (scrapeResult.extractedPlaces.length === 0) {
-          setState('error');
-          setErrorMessage('No places found in this post.');
+          addToast("No places found in this post.", "error");
+          setTimeout(() => { resetToIdle(); }, 300);
           return;
         }
 
@@ -144,17 +143,15 @@ const MagicBar = forwardRef<MagicBarRef, MagicBarProps>(function MagicBar({ onPi
             resetToIdle();
           }, 2000);
         } else {
-          setState('error');
-          setErrorMessage("Couldn't pin any of the extracted spots.");
+          addToast("Our AI is currently taking a coffee break. We saved the link to your unorganized collection instead!", "error");
+          setTimeout(() => { resetToIdle(); }, 300);
         }
       } catch (err) {
-        setState('error');
-        setErrorMessage(
-          err instanceof Error ? err.message : 'Something went wrong'
-        );
+        addToast("Something went wrong. Please try again in a moment.", "error");
+        setTimeout(() => { resetToIdle(); }, 300);
       }
     },
-    [inputValue, addPin, onPinCreated, resetToIdle]
+    [inputValue, addPin, onPinCreated, resetToIdle, addToast]
   );
 
   const handleClarificationSubmit = useCallback(
@@ -264,8 +261,6 @@ const MagicBar = forwardRef<MagicBarRef, MagicBarProps>(function MagicBar({ onPi
             disabled={isProcessing}
             placeholder="Paste a URL to pin a place..."
             aria-label="Paste a URL to create a travel pin"
-            aria-invalid={state === 'error'}
-            aria-describedby={state === 'error' ? 'magicbar-error' : undefined}
             className="flex-1 bg-transparent outline-none text-sm sm:text-base text-primary placeholder:text-gray-400"
           />
         )}
@@ -293,19 +288,6 @@ const MagicBar = forwardRef<MagicBarRef, MagicBarProps>(function MagicBar({ onPi
           )}
         </AnimatePresence>
       </motion.form>
-
-      {/* Inline error message */}
-      {state === 'error' && errorMessage && (
-        <motion.p
-          id="magicbar-error"
-          role="alert"
-          initial={{ opacity: 0, y: -4 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="mt-2 text-xs text-red-500 bg-surface/90 backdrop-blur-sm rounded-full px-3 py-1 border border-red-200"
-        >
-          {errorMessage}
-        </motion.p>
-      )}
 
       {/* Needs-input clarification UI */}
       <AnimatePresence>
