@@ -165,6 +165,50 @@ async function callGemini(prompt: string): Promise<string | null> {
 }
 
 /**
+ * Attempt to extract a place name from a caption using simple heuristics.
+ * Looks for patterns common in social media posts about restaurants/places:
+ * - Text before a separator (｜, |, -, —, ·) on the first line
+ * - 📍 pin emoji followed by a name
+ * - Text after country flag emojis on the first line
+ * Returns null if no confident extraction can be made.
+ */
+export function extractPlaceNameFromCaption(caption: string): string | null {
+  if (!caption || caption.trim().length === 0) return null;
+
+  const firstLine = caption.split('\n').filter((l) => l.trim().length > 0)[0]?.trim();
+  if (!firstLine) return null;
+
+  // Strip leading country flag emojis (🇫🇷, 🇯🇵, etc.) — they are surrogate pairs
+  const withoutFlags = firstLine.replace(/^[\u{1F1E0}-\u{1F1FF}]{2,}\s*/u, '').trim();
+
+  // Pattern 1: text before a CJK/Latin separator on the first line
+  // e.g. "La Terrace by Louise ｜米芝蓮一星餐廳"
+  const separatorMatch = withoutFlags.match(/^(.+?)\s*[｜|·\-–—:]\s*/);
+  if (separatorMatch?.[1]) {
+    const candidate = separatorMatch[1].trim();
+    if (candidate.length >= 2 && candidate.length <= 100) {
+      return candidate;
+    }
+  }
+
+  // Pattern 2: 📍 followed by a place name
+  const pinMatch = caption.match(/📍\s*(.+?)(?:\n|$)/);
+  if (pinMatch?.[1]) {
+    const candidate = pinMatch[1].trim();
+    if (candidate.length >= 2 && candidate.length <= 100) {
+      return candidate;
+    }
+  }
+
+  // Pattern 3: first line itself if it's short enough to be a name (≤60 chars)
+  if (withoutFlags.length >= 2 && withoutFlags.length <= 60) {
+    return withoutFlags;
+  }
+
+  return null;
+}
+
+/**
  * Orchestrator: extract places from a caption using the DeepSeek → Gemini → og:title fallback chain.
  * Returns an array of ExtractedPlace objects. Always returns at least one place (the og:title fallback).
  */
@@ -208,12 +252,16 @@ export async function extractPlacesWithAI(
     // Gemini threw — fall through to og:title
   }
 
-  // --- Fallback to og:title ---
+  // --- Fallback to caption heuristics → og:title ---
   if (deepSeekSkipped && geminiSkipped) {
-    console.warn('extractPlacesWithAI: both DEEPSEEK_API_KEY and GEMINI_API_KEY are missing — falling back to og:title');
+    console.warn('extractPlacesWithAI: both DEEPSEEK_API_KEY and GEMINI_API_KEY are missing — falling back to caption heuristics');
   } else {
-    console.warn('extractPlacesWithAI: both LLM providers failed — falling back to og:title');
+    console.warn('extractPlacesWithAI: both LLM providers failed — falling back to caption heuristics');
   }
 
-  return [{ name: ogTitle, contextualHints: [] }];
+  // Try to extract a meaningful place name from the caption before using og:title
+  const captionName = extractPlaceNameFromCaption(caption);
+  const fallbackName = captionName ?? ogTitle;
+
+  return [{ name: fallbackName, contextualHints: [] }];
 }

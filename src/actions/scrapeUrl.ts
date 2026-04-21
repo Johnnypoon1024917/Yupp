@@ -434,7 +434,7 @@ export async function scrapeUrl(url: string): Promise<ScrapeResult | ScrapeError
 
     // Use AI extraction to find places from caption/description
     const caption = description ?? '';
-    const extractedPlaces = await extractPlacesWithAI(caption, rawTitle);
+    const extractedPlaces = await extractPlacesWithAI(caption, title);
 
     console.log('[scrapeUrl] Extracted:', { title, description: description?.slice(0, 80), imageUrl: imageUrl?.slice(0, 80), platform, extractedPlaces });
 
