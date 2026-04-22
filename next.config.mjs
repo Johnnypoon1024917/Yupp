@@ -2,7 +2,10 @@ import withPWA from '@ducanh2912/next-pwa';
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  serverExternalPackages: ['puppeteer-core'],
+  output: 'standalone',
+  experimental: {
+    serverComponentsExternalPackages: ['puppeteer-core'],
+  },
 };
 
 export default withPWA({

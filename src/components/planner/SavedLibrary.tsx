@@ -5,6 +5,7 @@ import { useDraggable } from '@dnd-kit/core';
 import { motion } from 'framer-motion';
 import { Search, GripVertical, MapPin } from 'lucide-react';
 import useTravelPinStore from '@/store/useTravelPinStore';
+import { extractCountry } from '@/utils/address';
 import type { Pin, Collection } from '@/types';
 
 interface SavedLibraryProps {
@@ -30,6 +31,19 @@ export function groupPinsByRegion(pins: Pin[]): Record<string, Pin[]> {
     const region = extractRegion(pin.address);
     if (!groups[region]) groups[region] = [];
     groups[region].push(pin);
+  }
+  return groups;
+}
+
+/**
+ * Groups pins by their derived country key using extractCountry.
+ */
+export function groupPinsByCountry(pins: Pin[]): Record<string, Pin[]> {
+  const groups: Record<string, Pin[]> = Object.create(null);
+  for (const pin of pins) {
+    const country = extractCountry(pin.address);
+    if (!groups[country]) groups[country] = [];
+    groups[country].push(pin);
   }
   return groups;
 }
@@ -69,13 +83,13 @@ export default function SavedLibrary({ className }: SavedLibraryProps) {
   const pins = useTravelPinStore((s) => s.pins);
   const collections = useTravelPinStore((s) => s.collections);
   const [search, setSearch] = useState('');
-  const [groupMode, setGroupMode] = useState<'region' | 'category'>('region');
+  const [groupMode, setGroupMode] = useState<'region' | 'category' | 'country'>('region');
 
   const filteredGroups = useMemo(() => {
     const filtered = filterPins(pins, search);
-    return groupMode === 'region'
-      ? groupPinsByRegion(filtered)
-      : groupPinsByCategory(filtered, collections);
+    if (groupMode === 'country') return groupPinsByCountry(filtered);
+    if (groupMode === 'category') return groupPinsByCategory(filtered, collections);
+    return groupPinsByRegion(filtered);
   }, [pins, collections, search, groupMode]);
 
   const groupNames = Object.keys(filteredGroups).sort();
@@ -106,6 +120,17 @@ export default function SavedLibrary({ className }: SavedLibraryProps) {
             }`}
           >
             Category
+          </button>
+          <button
+            type="button"
+            onClick={() => setGroupMode('country')}
+            className={`flex-1 text-xs font-medium py-1.5 rounded-md transition-colors ${
+              groupMode === 'country'
+                ? 'bg-white text-primary shadow-sm'
+                : 'text-neutral-500 hover:text-neutral-700'
+            }`}
+          >
+            Country
           </button>
         </div>
       </div>

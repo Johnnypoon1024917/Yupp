@@ -16,7 +16,7 @@ export interface LinkBannerProps {
  * is detected on the clipboard. Slides down from the top with a fade,
  * auto-dismisses after 8 seconds.
  */
-export default function LinkBanner({ url, platformName, onAccept, onDismiss }: LinkBannerProps) {
+export default function LinkBanner({ platformName, onAccept, onDismiss }: LinkBannerProps) {
   // Auto-dismiss after 8 seconds
   useEffect(() => {
     const timer = setTimeout(() => {

@@ -188,6 +188,7 @@ export default function PlaceSheet({ pin, onDismiss }: PlaceSheetProps) {
                     type="text"
                     value={editTitle}
                     onChange={(e) => setEditTitle(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') handleSaveEdit(); }}
                     className="text-[26px] leading-[30px] font-extrabold tracking-[-0.8px] text-[#111111] w-full border border-[#E4E4E7] rounded-lg px-2 py-1 outline-none focus:border-[#A1A1AA] transition-colors"
                   />
                 ) : (
@@ -236,7 +237,8 @@ export default function PlaceSheet({ pin, onDismiss }: PlaceSheetProps) {
 
                   {/* Collection dropdown */}
                   {collectionPickerOpen && (
-                    <div className="absolute top-full left-0 mt-[6px] w-[220px] bg-white rounded-[14px] shadow-[0_8px_32px_rgba(0,0,0,0.12)] border border-[#F4F4F5] z-30 py-[6px] overflow-hidden">
+                    <div className="absolute top-full left-0 mt-[6px] w-[220px] bg-white rounded-[14px] shadow-[0_8px_32px_rgba(0,0,0,0.12)] border border-[#F4F4F5] z-30 py-[6px] overflow-visible">
+                      <div className="rounded-b-lg overflow-hidden">
                       {collections.map((c) => (
                         <button
                           key={c.id}
@@ -250,6 +252,7 @@ export default function PlaceSheet({ pin, onDismiss }: PlaceSheetProps) {
                           )}
                         </button>
                       ))}
+                      </div>
 
                       {/* Inline collection creation */}
                       <div className="border-t border-[#F4F4F5] mt-[2px] pt-[2px]">

@@ -12,7 +12,7 @@ interface TripPageProps {
  * Extracts a city name from an address string.
  * Takes the first comma-separated segment, or the full address if no comma.
  */
-export function extractCity(address: string): string {
+function extractCity(address: string): string {
   const firstSegment = address.split(",")[0].trim();
   return firstSegment || address.trim();
 }

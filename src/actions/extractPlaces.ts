@@ -29,14 +29,29 @@ export function detectPlatform(url: string): Platform {
   }
 }
 
-const EXTRACTION_PROMPT_TEMPLATE =
-  'Extract all restaurants, attractions, or points of interest from this social media caption. Return ONLY a valid JSON array of objects: [{ "name": "Place Name", "contextualHints": ["City", "Neighborhood"] }]. Return an empty array if none found.';
+const EXTRACTION_PROMPT_TEMPLATE = `Extract all restaurants, attractions, or points of interest from this social media caption.
+
+IMPORTANT INSTRUCTIONS:
+- IGNORE narrative, emotional, or descriptive text (e.g. personal stories, feelings, recommendations). These are NOT place names.
+- PRIORITIZE extraction from these patterns:
+  1. @mentions (e.g. @restaurant_name) — these are often business/place accounts
+  2. Physical addresses — especially CJK addresses containing markers like 市 (city), 區 (district), 路 (road), 街 (street), 號 (number), 巷 (lane), 弄 (alley)
+  3. Business names — look for proper nouns that name a restaurant, café, hotel, or attraction
+- Look for structured info blocks: lines prefixed with emojis like 📍, 🏵️, 🏠, 🍽️, 🏪 often contain place names or addresses
+- For multilingual/CJK captions: the first line is often narrative text, NOT a place name. Scan the ENTIRE caption for structured place information.
+- If an @mention is found, use the username (without @) as the place name.
+- If a CJK address is found, include it in contextualHints.
+
+Return ONLY a valid JSON array of objects: [{ "name": "Place Name", "contextualHints": ["City", "Neighborhood"] }]. Return an empty array if none found.`;
 
 /**
  * Build the full extraction prompt by combining the template with the caption.
+ * When ogTitle is provided, it is included as author/account context to help
+ * the LLM distinguish the post author from place names in the caption.
  */
-export function buildExtractionPrompt(caption: string): string {
-  return `${EXTRACTION_PROMPT_TEMPLATE}\n\nCaption: ${caption}`;
+export function buildExtractionPrompt(caption: string, ogTitle?: string): string {
+  const authorLine = ogTitle ? `\nPost author / account name: ${ogTitle}` : '';
+  return `${EXTRACTION_PROMPT_TEMPLATE}${authorLine}\n\nCaption: ${caption}`;
 }
 
 /**
@@ -102,7 +117,8 @@ async function callCustomLLM(prompt: string): Promise<string | null> {
   }
 
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 10_000);
+  // Increased timeout: local/self-hosted LLMs can be slower than commercial APIs
+  const timeout = setTimeout(() => controller.abort(), 25_000);
 
   try {
     const response = await fetch(endpoint, {
@@ -110,20 +126,21 @@ async function callCustomLLM(prompt: string): Promise<string | null> {
       headers,
       body: JSON.stringify({
         model,
-        messages: [{ role: 'user', content: prompt }],
+        prompt,        // Ollama's native 'prompt' field instead of 'messages' array
+        stream: false,
+        format: 'json', // Force Ollama to return structured JSON
       }),
       signal: controller.signal,
     });
 
     if (!response.ok) {
-      throw new Error(`Custom LLM API error: ${response.status} ${response.statusText}`);
+      throw new Error(`Custom LLM API error: ${response.status}`);
     }
 
-    const data = (await response.json()) as {
-      choices?: { message?: { content?: string } }[];
-    };
+    // Parse Ollama's native response schema
+    const data = (await response.json()) as { response?: string };
+    const content = data.response;
 
-    const content = data.choices?.[0]?.message?.content;
     if (typeof content !== 'string') {
       throw new Error('Custom LLM returned no content in response');
     }
@@ -261,6 +278,56 @@ export function extractPlaceNameFromCaption(caption: string): string | null {
     return withoutFlags;
   }
 
+  // Pattern 4: @username mention on any line
+  const lines = caption.split('\n');
+  for (const line of lines) {
+    const mentionMatch = line.match(/@([A-Za-z0-9._]+)/);
+    if (mentionMatch?.[1]) {
+      const username = mentionMatch[1];
+      if (username.length >= 2 && username.length <= 100) {
+        return username;
+      }
+    }
+  }
+
+  // Pattern 5: CJK address containing at least two address markers (市, 區, 路, 街, 號, 巷, 弄)
+  const cjkAddressMarkers = /[市區路街號巷弄]/g;
+  for (const line of lines) {
+    const trimmedLine = line.trim();
+    const markers = trimmedLine.match(cjkAddressMarkers);
+    if (markers && markers.length >= 2) {
+      // Extract the address substring: match a sequence containing CJK chars, digits,
+      // hyphens, and address markers that spans at least two markers
+      const addressMatch = trimmedLine.match(
+        /[\u4e00-\u9fff\u3400-\u4dbf0-9A-Za-z\-]+[市區路街號巷弄][\u4e00-\u9fff\u3400-\u4dbf0-9A-Za-z\-市區路街號巷弄]*/
+      );
+      if (addressMatch?.[0]) {
+        const candidate = addressMatch[0].trim();
+        if (candidate.length >= 2 && candidate.length <= 100) {
+          // Verify the candidate itself has at least two markers
+          const candidateMarkers = candidate.match(cjkAddressMarkers);
+          if (candidateMarkers && candidateMarkers.length >= 2) {
+            return candidate;
+          }
+        }
+      }
+    }
+  }
+
+  // Pattern 6: Multi-line emoji block scanning for place-indicator emojis
+  // Recognizes common place-indicator emojis beyond 📍 (which is handled by Pattern 2)
+  const placeEmojiPattern = /^(?:🏵️|🏵|🏠|🍽️|🍽|🏪|🏨|🏩|🏫|🏬|🏭|🏯|🏰|🍴|🍜|☕|🥘|🫕|🍕|🍔|🎪|🎭|⛪|🕌|🕍|⛩️|⛩|🗼|🗽|🎡|🎢|🏟️|🏟|🛍️|🛍|🎯|🏖️|🏖|🏝️|🏝|⛰️|⛰|🌊|🌸|🌺|🌴)\s*(.+)/u;
+  for (const line of lines) {
+    const trimmedLine = line.trim();
+    const emojiMatch = trimmedLine.match(placeEmojiPattern);
+    if (emojiMatch?.[1]) {
+      const candidate = emojiMatch[1].trim();
+      if (candidate.length >= 2 && candidate.length <= 100) {
+        return candidate;
+      }
+    }
+  }
+
   return null;
 }
 
@@ -272,7 +339,7 @@ export async function extractPlacesWithAI(
   caption: string,
   ogTitle: string,
 ): Promise<ExtractedPlace[]> {
-  const prompt = buildExtractionPrompt(caption);
+  const prompt = buildExtractionPrompt(caption, ogTitle);
 
   // --- Try Custom LLM ---
   let customSkipped = false;

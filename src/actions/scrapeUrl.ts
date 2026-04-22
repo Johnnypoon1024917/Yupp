@@ -388,7 +388,7 @@ export async function extractXiaohongshuData(
     try {
       // Strategy 1: __INITIAL_STATE__ extraction
       try {
-        const state = (window as Record<string, unknown>).__INITIAL_STATE__ as
+        const state = (window as unknown as Record<string, unknown>).__INITIAL_STATE__ as
           | {
               note?: {
                 noteDetailMap?: Record<
@@ -541,7 +541,7 @@ export async function scrapeUrl(url: string): Promise<ScrapeResult | ScrapeError
     const caption = description ?? '';
     const extractedPlaces = await extractPlacesWithAI(caption, title);
 
-    console.log('[scrapeUrl] Extracted:', { title, description: description?.slice(0, 80), imageUrl: imageUrl?.slice(0, 80), platform, extractedPlaces });
+    console.log('[scrapeUrl] Extracted:', { title, description: description?.slice(0, 2000), imageUrl: imageUrl?.slice(0, 80), platform, extractedPlaces });
 
     return {
       success: true,

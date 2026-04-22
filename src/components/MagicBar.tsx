@@ -2,7 +2,7 @@
 
 import { useState, useRef, useCallback, forwardRef, useImperativeHandle } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Sparkles } from 'lucide-react';
+import { Sparkles, Clipboard } from 'lucide-react';
 import { scrapeUrl } from '@/actions/scrapeUrl';
 import { geocodeLocation } from '@/actions/geocodeLocation';
 import { detectPlatform } from '@/actions/extractPlaces';
@@ -164,13 +164,25 @@ const MagicBar = forwardRef<MagicBarRef, MagicBarProps>(function MagicBar({ onPi
           addToast("Our AI is currently taking a coffee break. We saved the link to your unorganized collection instead!", "error");
           setTimeout(() => { resetToIdle(); }, 300);
         }
-      } catch (err) {
+      } catch {
         addToast("Something went wrong. Please try again in a moment.", "error");
         setTimeout(() => { resetToIdle(); }, 300);
       }
     },
     [addPin, onPinCreated, resetToIdle, addToast]
   );
+
+  const handlePaste = useCallback(async () => {
+    try {
+      const text = await navigator.clipboard.readText();
+      const trimmed = text?.trim();
+      if (trimmed && isValidUrl(trimmed)) {
+        processUrl(trimmed, true);
+      }
+    } catch {
+      // Silently ignore — permission denied or API unavailable
+    }
+  }, [processUrl]);
 
   useImperativeHandle(ref, () => ({
     focus: () => {
@@ -296,18 +308,28 @@ const MagicBar = forwardRef<MagicBarRef, MagicBarProps>(function MagicBar({ onPi
             {statusText || 'Processing…'}
           </motion.span>
         ) : (
-          <input
-            ref={inputRef}
-            type="text"
-            value={inputValue}
-            onChange={handleChange}
-            onFocus={() => setIsFocused(true)}
-            onBlur={() => setIsFocused(false)}
-            disabled={isProcessing}
-            placeholder="Paste a URL to pin a place..."
-            aria-label="Paste a URL to create a travel pin"
-            className="flex-1 bg-transparent outline-none text-sm sm:text-base text-primary placeholder:text-gray-400"
-          />
+          <>
+            <input
+              ref={inputRef}
+              type="text"
+              value={inputValue}
+              onChange={handleChange}
+              onFocus={() => setIsFocused(true)}
+              onBlur={() => setIsFocused(false)}
+              disabled={isProcessing}
+              placeholder="Paste a URL to pin a place..."
+              aria-label="Paste a URL to create a travel pin"
+              className="flex-1 bg-transparent outline-none text-sm sm:text-base text-primary placeholder:text-gray-400"
+            />
+            <button
+              type="button"
+              onClick={handlePaste}
+              className="ml-2 flex-shrink-0 text-gray-400 hover:text-accent transition-colors"
+              aria-label="Paste from clipboard"
+            >
+              <Clipboard size={16} />
+            </button>
+          </>
         )}
 
         {/* Shimmer bar — subtle gradient sweep across the bar during processing */}

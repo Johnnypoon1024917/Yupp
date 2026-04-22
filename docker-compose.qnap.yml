@@ -1,0 +1,18 @@
+version: "3.8"
+
+services:
+  travel-pin-board:
+    image: cypoon/travel-pin-board:latest
+    container_name: travel-pin-board
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - BROWSERLESS_URL=wss://production-sfo.browserless.io/chromium?token=2UMXorx83PYjEnOa6d516b7c79a717591937993200dc501f2
+      - GOOGLE_PLACES_API_KEY=AIzaSyBNTXne0lfzI3OUschMxa0UI2jcdcRml_I
+      - NEXT_PUBLIC_SUPABASE_URL=https://bfkdjbvwbhbsverxanad.supabase.co
+      - NEXT_PUBLIC_SUPABASE_ANON_KEY=sb_publishable_eiKiTMEWNzstPprDcD1sjw_ONlzMqey
+      - CUSTOM_LLM_ENDPOINT=https://ollama.ivyjohnny.org/api/generate
+      - CUSTOM_LLM_API_KEY=
+      - CUSTOM_LLM_MODEL=llama3.2:1b

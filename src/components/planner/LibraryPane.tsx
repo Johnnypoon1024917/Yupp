@@ -4,6 +4,7 @@ import { useState, useMemo } from 'react';
 import { useDraggable } from '@dnd-kit/core';
 import { Search, GripVertical, MapPin } from 'lucide-react';
 import useTravelPinStore from '@/store/useTravelPinStore';
+import { extractCountry } from '@/utils/address';
 import type { Pin } from '@/types';
 
 interface LibraryPaneProps {
@@ -36,6 +37,19 @@ export function groupPinsByCity(pins: Pin[]): Record<string, Pin[]> {
 }
 
 /**
+ * Groups pins by their derived country key.
+ */
+export function groupPinsByCountry(pins: Pin[]): Record<string, Pin[]> {
+  const groups: Record<string, Pin[]> = {};
+  for (const pin of pins) {
+    const country = extractCountry(pin.address);
+    if (!groups[country]) groups[country] = [];
+    groups[country].push(pin);
+  }
+  return groups;
+}
+
+/**
  * Filters pins by a case-insensitive query matching title or city name.
  */
 export function filterPins(pins: Pin[], query: string): Pin[] {
@@ -51,18 +65,37 @@ export function filterPins(pins: Pin[], query: string): Pin[] {
 export default function LibraryPane({ className }: LibraryPaneProps) {
   const pins = useTravelPinStore((s) => s.pins);
   const [search, setSearch] = useState('');
+  const [groupMode, setGroupMode] = useState<'city' | 'country'>('city');
 
   const filteredGroups = useMemo(() => {
     const filtered = filterPins(pins, search);
-    return groupPinsByCity(filtered);
-  }, [pins, search]);
+    return groupMode === 'country' ? groupPinsByCountry(filtered) : groupPinsByCity(filtered);
+  }, [pins, search, groupMode]);
 
   const cityNames = Object.keys(filteredGroups).sort();
 
   return (
     <div className={`flex flex-col ${className ?? ''}`}>
+      {/* City / Country segmented toggle */}
+      <div className="px-4 pt-4 pb-2 flex gap-1">
+        {(['city', 'country'] as const).map((mode) => (
+          <button
+            key={mode}
+            type="button"
+            onClick={() => setGroupMode(mode)}
+            className={`flex-1 py-1.5 text-[12px] font-medium rounded-md transition-colors ${
+              groupMode === mode
+                ? 'bg-accent text-white'
+                : 'bg-[#F0F0F0] text-neutral-500 hover:bg-[#E5E5E5]'
+            }`}
+          >
+            {mode === 'city' ? 'City' : 'Country'}
+          </button>
+        ))}
+      </div>
+
       {/* Search input */}
-      <div className="p-4 border-b border-gray-200">
+      <div className="px-4 pb-4 border-b border-gray-200">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
           <input

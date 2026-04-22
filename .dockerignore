@@ -1,0 +1,11 @@
+node_modules
+.next
+.git
+.kiro
+.vscode
+.DS_Store
+*.md
+vitest.config.ts
+tsconfig.tsbuildinfo
+src/__tests__
+src/**/__tests__
