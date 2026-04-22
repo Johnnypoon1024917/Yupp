@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Drawer } from 'vaul';
-import { Menu, X } from 'lucide-react';
+import { Menu, X, Plus, Check } from 'lucide-react';
 import useTravelPinStore from '@/store/useTravelPinStore';
 import CollectionCard from '@/components/CollectionCard';
 import { createClient } from '@/utils/supabase/client';
@@ -20,7 +20,11 @@ function DrawerContent() {
   const setActiveCollection = useTravelPinStore((s) => s.setActiveCollection);
   const renameCollection = useTravelPinStore((s) => s.renameCollection);
   const removeCollection = useTravelPinStore((s) => s.removeCollection);
+  const addCollection = useTravelPinStore((s) => s.addCollection);
   const user = useTravelPinStore((s) => s.user);
+
+  const [isCreating, setIsCreating] = useState(false);
+  const [newName, setNewName] = useState('');
 
   // Ensure "Unorganized" is always first
   const sorted = [...collections].sort((a, b) => {
@@ -65,11 +69,63 @@ function DrawerContent() {
     [removeCollection, user],
   );
 
+  const handleCreateSave = () => {
+    const trimmed = newName.trim();
+    if (trimmed) {
+      addCollection(trimmed);
+      setNewName('');
+      setIsCreating(false);
+    }
+  };
+
   return (
     <div className="p-4">
-      <h2 className="text-lg font-bold tracking-tight text-primary mb-4">
-        Collections
-      </h2>
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-lg font-bold tracking-tight text-primary">
+          Collections
+        </h2>
+        <button
+          type="button"
+          onClick={() => setIsCreating(true)}
+          className="flex h-8 w-8 items-center justify-center rounded-full text-gray-500 hover:bg-gray-100 hover:text-primary transition-colors"
+          aria-label="New collection"
+        >
+          <Plus size={18} />
+        </button>
+      </div>
+
+      {isCreating && (
+        <div className="flex items-center gap-2 mb-3">
+          <input
+            autoFocus
+            type="text"
+            placeholder="Collection name"
+            value={newName}
+            onChange={(e) => setNewName(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') handleCreateSave();
+              if (e.key === 'Escape') { setIsCreating(false); setNewName(''); }
+            }}
+            className="flex-1 text-sm border border-border rounded-lg px-3 py-1.5 bg-white focus:outline-none focus:ring-1 focus:ring-accent"
+          />
+          <button
+            type="button"
+            onClick={handleCreateSave}
+            className="p-1.5 text-green-600 hover:text-green-700 rounded transition-colors"
+            aria-label="Save new collection"
+          >
+            <Check size={16} />
+          </button>
+          <button
+            type="button"
+            onClick={() => { setIsCreating(false); setNewName(''); }}
+            className="p-1.5 text-gray-400 hover:text-gray-600 rounded transition-colors"
+            aria-label="Cancel new collection"
+          >
+            <X size={16} />
+          </button>
+        </div>
+      )}
 
       {collections.length === 0 ? (
         <p className="text-sm text-gray-400">No collections yet.</p>

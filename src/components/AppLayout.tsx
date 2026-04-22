@@ -11,10 +11,13 @@ import DiscoverFeed from '@/components/DiscoverFeed';
 import CollectionDrawer from '@/components/CollectionDrawer';
 import PlannerSidebar from '@/components/PlannerSidebar';
 import AuthModal from '@/components/AuthModal';
+import LinkBanner from '@/components/LinkBanner';
 import useCloudSync from '@/hooks/useCloudSync';
 import usePlannerDnd from '@/hooks/usePlannerDnd';
 import useTravelPinStore from '@/store/useTravelPinStore';
 import usePlannerStore from '@/store/usePlannerStore';
+import { extractSupportedUrl, formatPlatformName } from '@/utils/urlParsing';
+import { detectPlatform } from '@/actions/extractPlaces';
 import type { MapViewRef } from '@/components/MapView';
 import type { MagicBarRef } from '@/components/MagicBar';
 
@@ -31,6 +34,11 @@ export default function AppLayout() {
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [authModalMessage, setAuthModalMessage] = useState<string | undefined>(undefined);
   const itinerariesLoadedRef = useRef(false);
+  const autoPasteProcessedRef = useRef(false);
+  const processedLinksRef = useRef<Set<string>>(new Set());
+
+  const [bannerUrl, setBannerUrl] = useState<string | null>(null);
+  const [bannerPlatform, setBannerPlatform] = useState<string>('');
 
   const fetchItineraries = usePlannerStore((s) => s.fetchItineraries);
   const { sensors, activeDrag, handleDragStart, handleDragEnd, DragPreview } =
@@ -123,6 +131,47 @@ export default function AppLayout() {
     return () => clearTimeout(timeout);
   }, [isPlannerOpen]);
 
+  // Consume autoPaste query parameter on mount (from /share redirect)
+  useEffect(() => {
+    if (autoPasteProcessedRef.current) return;
+
+    const params = new URLSearchParams(window.location.search);
+    const autoPasteUrl = params.get('autoPaste');
+    if (!autoPasteUrl) return;
+
+    autoPasteProcessedRef.current = true;
+
+    // Remove autoPaste param from browser URL without page reload
+    params.delete('autoPaste');
+    const newSearch = params.toString();
+    const newUrl = window.location.pathname + (newSearch ? `?${newSearch}` : '');
+    window.history.replaceState({}, '', newUrl);
+
+    // Trigger MagicBar processing with the shared URL
+    magicBarRef.current?.triggerProcess(autoPasteUrl);
+  }, []);
+
+  // Clipboard detection on window focus
+  useEffect(() => {
+    const handleFocus = async () => {
+      try {
+        const clipboardText = await navigator.clipboard.readText();
+        const url = extractSupportedUrl(clipboardText);
+        if (url && !processedLinksRef.current.has(url)) {
+          processedLinksRef.current.add(url);
+          const platform = detectPlatform(url);
+          setBannerUrl(url);
+          setBannerPlatform(formatPlatformName(platform));
+        }
+      } catch {
+        // Silently ignore clipboard read errors (permission denied, unavailable API)
+      }
+    };
+
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
+  }, []);
+
   return (
     <div className="relative w-screen h-[100dvh] overflow-hidden overscroll-none bg-[#FAFAFA]">
       <DndContext
@@ -154,6 +203,23 @@ export default function AppLayout() {
 
         {/* z-40: Floating search bar */}
         <MagicBar ref={magicBarRef} />
+
+        {/* z-35: Link detection banner */}
+        {bannerUrl && (
+          <LinkBanner
+            url={bannerUrl}
+            platformName={bannerPlatform}
+            onAccept={() => {
+              magicBarRef.current?.triggerProcess(bannerUrl);
+              setBannerUrl(null);
+              setBannerPlatform('');
+            }}
+            onDismiss={() => {
+              setBannerUrl(null);
+              setBannerPlatform('');
+            }}
+          />
+        )}
 
         {/* z-50: Place detail bottom sheet */}
         <PlaceSheet pin={activePin} onDismiss={handlePlaceSheetDismiss} />

@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Sparkles } from 'lucide-react';
 import { scrapeUrl } from '@/actions/scrapeUrl';
 import { geocodeLocation } from '@/actions/geocodeLocation';
+import { detectPlatform } from '@/actions/extractPlaces';
 import useTravelPinStore from '@/store/useTravelPinStore';
 import useToastStore from '@/store/useToastStore';
 import type { Pin } from '@/types';
@@ -21,6 +22,7 @@ export function formatPlatformName(platform: string): string {
 
 export interface MagicBarRef {
   focus: () => void;
+  triggerProcess: (url: string) => void;
 }
 
 export interface MagicBarProps {
@@ -48,14 +50,9 @@ const MagicBar = forwardRef<MagicBarRef, MagicBarProps>(function MagicBar({ onPi
   const [clarificationValue, setClarificationValue] = useState('');
   const [sourceUrl, setSourceUrl] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
+  const isSharedRef = useRef(false);
   const addPin = useTravelPinStore((s) => s.addPin);
   const addToast = useToastStore((s) => s.addToast);
-
-  useImperativeHandle(ref, () => ({
-    focus: () => {
-      inputRef.current?.focus();
-    },
-  }), []);
 
   const resetToIdle = useCallback(() => {
     setState('idle');
@@ -63,15 +60,15 @@ const MagicBar = forwardRef<MagicBarRef, MagicBarProps>(function MagicBar({ onPi
     setPartialData(null);
     setClarificationValue('');
     setSourceUrl('');
+    isSharedRef.current = false;
   }, []);
 
-  const handleSubmit = useCallback(
-    async (e: React.FormEvent) => {
-      e.preventDefault();
-
-      const trimmed = inputValue.trim();
-      if (!trimmed) return;
-
+  /**
+   * Core processing logic shared by both manual submit and external triggerProcess.
+   * Accepts a trimmed URL and an `isShared` flag to differentiate status text.
+   */
+  const processUrl = useCallback(
+    async (trimmed: string, isShared: boolean) => {
       // Validate URL
       if (!isValidUrl(trimmed)) {
         addToast("Please enter a valid URL (e.g. https://example.com)", "error");
@@ -79,9 +76,19 @@ const MagicBar = forwardRef<MagicBarRef, MagicBarProps>(function MagicBar({ onPi
         return;
       }
 
+      // Determine initial status text based on source (Req 7.1, 7.2, 7.3)
+      let initialStatusText = 'Scanning for multiple spots...';
+      if (isShared) {
+        const platform = detectPlatform(trimmed);
+        if (platform !== 'unknown') {
+          const platformDisplay = formatPlatformName(platform);
+          initialStatusText = `Shared from ${platformDisplay}! Finding the spot...`;
+        }
+      }
+
       // Clear any previous state
       setState('processing');
-      setStatusText('Scanning for multiple spots...');
+      setStatusText(initialStatusText);
 
       try {
         // Step 1: Scrape the URL
@@ -162,7 +169,34 @@ const MagicBar = forwardRef<MagicBarRef, MagicBarProps>(function MagicBar({ onPi
         setTimeout(() => { resetToIdle(); }, 300);
       }
     },
-    [inputValue, addPin, onPinCreated, resetToIdle, addToast]
+    [addPin, onPinCreated, resetToIdle, addToast]
+  );
+
+  useImperativeHandle(ref, () => ({
+    focus: () => {
+      inputRef.current?.focus();
+    },
+    triggerProcess: (url: string) => {
+      // Ignore if already processing (Req 6.3) or empty string (Req 6.4)
+      if (state === 'processing' || !url || !url.trim()) return;
+      const trimmed = url.trim();
+      isSharedRef.current = true;
+      setInputValue(trimmed);
+      processUrl(trimmed, true);
+    },
+  }), [state, processUrl]);
+
+  const handleSubmit = useCallback(
+    async (e: React.FormEvent) => {
+      e.preventDefault();
+
+      const trimmed = inputValue.trim();
+      if (!trimmed) return;
+
+      isSharedRef.current = false;
+      await processUrl(trimmed, false);
+    },
+    [inputValue, processUrl]
   );
 
   const handleClarificationSubmit = useCallback(

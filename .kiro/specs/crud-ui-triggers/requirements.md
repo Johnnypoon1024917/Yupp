@@ -2,80 +2,42 @@
 
 ## Introduction
 
-This feature connects missing CRUD UI triggers to existing Zustand store actions across four areas of the travel pin board application: inline collection creation in the place sheet, pin editing capability, collection management (rename/delete), and itinerary management confirmation dialogs. The goal is to give users full control over their saved data through intuitive, inline UI affordances that match the existing neutral/minimalist Tailwind aesthetic.
+This spec addresses two UI bugs in the travel pin board application. First, the `CollectionCard` component contains nested interactive elements — buttons and links are rendered inside a `div[role="button"]`, which violates HTML semantics and creates accessibility issues (screen readers announce nested controls incorrectly, and click events propagate unpredictably). Second, the `PlaceSheet` component's collection picker dropdown is clipped by the parent `Drawer.Content` element's `overflow-hidden`, causing the inline "New Collection" input to be cut off at the bottom of the drawer.
 
 ## Glossary
 
-- **PlaceSheet**: The vaul bottom-sheet drawer component (`PlaceSheet.tsx`) that displays pin details and actions when a user selects a pin.
-- **CollectionPicker**: The dropdown inside PlaceSheet that allows users to move a pin between collections.
-- **CollectionDrawer**: The slide-in panel/bottom-sheet (`CollectionDrawer.tsx`) that lists all user collections with expandable pin previews.
-- **CollectionCard**: A card component rendered inside CollectionDrawer that displays a single collection with its pins.
-- **TravelPinStore**: The Zustand store (`useTravelPinStore.ts`) managing pins and collections state with local persistence and Supabase sync.
-- **PlannerStore**: The Zustand store (`usePlannerStore.ts`) managing itineraries and day-based pin planning with Supabase CRUD.
-- **ItineraryToolbar**: The toolbar component (`ItineraryToolbar.tsx`) that displays itinerary header actions (rename, delete, save, back).
-- **Pin**: A saved place with title, description, image, coordinates, and collection assignment.
-- **Collection**: A user-defined folder grouping pins, identified by UUID (or "unorganized" for the default).
-- **Itinerary**: A named trip plan containing day-organized pins.
-- **Supabase**: The cloud persistence backend used for authenticated user data sync.
-- **Lucide**: The icon library (`lucide-react`) used throughout the application for UI icons.
+- **CollectionCard**: The React component (`src/components/CollectionCard.tsx`) that renders a single collection as an expandable accordion card inside the `CollectionDrawer`.
+- **Header_Region**: The top section of a `CollectionCard` containing the image grid, title, options menu, and chevron. Currently a single `div[role="button"]`.
+- **Options_Menu**: The three-dot (`MoreVertical`) dropdown inside the `Header_Region` that exposes Rename and Delete actions for a collection.
+- **Pin_Row**: A single pin entry rendered inside the expanded section of a `CollectionCard`, containing an image, title, and external source link.
+- **PlaceSheet**: The React component (`src/components/PlaceSheet.tsx`) that renders pin details in a vaul `Drawer` bottom sheet.
+- **Collection_Picker**: The dropdown inside `PlaceSheet` that lets the user move a pin to a different collection or create a new one inline.
+- **Drawer_Content**: The vaul `Drawer.Content` element that wraps the `PlaceSheet` body and currently applies `overflow-hidden`.
 
 ## Requirements
 
-### Requirement 1: Inline Collection Creation
+### Requirement 1: Remove Nested Interactive Elements from CollectionCard Header
 
-**User Story:** As a user organizing a pin, I want to create a new collection directly from the collection picker dropdown, so that I do not have to leave the PlaceSheet to create a folder.
-
-#### Acceptance Criteria
-
-1. WHEN the CollectionPicker dropdown is open, THE PlaceSheet SHALL display a "+ New Collection" button at the bottom of the collection list.
-2. WHEN the user clicks the "+ New Collection" button, THE PlaceSheet SHALL show an inline text input field and a "Save" button, controlled by a local `isCreatingCollection` state.
-3. WHEN the user submits a non-empty collection name, THE PlaceSheet SHALL call `addCollection(newName)` on the TravelPinStore and receive the new Collection object.
-4. WHEN the new collection is created successfully, THE PlaceSheet SHALL call `movePin(pin.id, newCollection.id)` on the TravelPinStore to assign the current pin to the new collection.
-5. WHEN the pin is moved to the new collection, THE PlaceSheet SHALL close the CollectionPicker dropdown and reset the `isCreatingCollection` state to false.
-6. WHEN the user submits an empty or whitespace-only collection name, THE PlaceSheet SHALL not call `addCollection` and SHALL keep the input field visible for correction.
-7. THE PlaceSheet SHALL display a Plus icon from Lucide for the "+ New Collection" button, consistent with the existing icon style.
-
-### Requirement 2: Edit Pin Capability
-
-**User Story:** As a user, I want to edit pin titles and descriptions inline, so that I can fix typos or customize AI-generated content without removing and re-adding the pin.
+**User Story:** As a user navigating with a screen reader or keyboard, I want the CollectionCard to have properly structured interactive elements, so that I can activate the accordion toggle, the options menu, and pin links independently without ambiguous focus targets.
 
 #### Acceptance Criteria
 
-1. THE TravelPinStore SHALL provide an `updatePin(id: string, updates: Partial<Pin>)` action that merges the provided updates into the matching pin's state.
-2. WHEN the `updatePin` action is called with a valid pin ID, THE TravelPinStore SHALL update only the specified fields of the pin while preserving all other fields.
-3. IF the `updatePin` action is called with an ID that does not match any existing pin, THEN THE TravelPinStore SHALL make no state changes.
-4. THE PlaceSheet SHALL display a Pencil icon button near the pin title area.
-5. WHEN the user clicks the Pencil icon, THE PlaceSheet SHALL enter edit mode by setting a local `isEditing` state to true.
-6. WHILE the PlaceSheet is in edit mode, THE PlaceSheet SHALL replace the title `<h2>` element with an `<input>` field and the description `<p>` element with a `<textarea>` field, pre-populated with the current pin values.
-7. WHILE the PlaceSheet is in edit mode, THE PlaceSheet SHALL display a "Save Changes" button.
-8. WHEN the user clicks "Save Changes", THE PlaceSheet SHALL call `updatePin` on the TravelPinStore with the edited title and description values, then exit edit mode.
-9. WHEN the user is authenticated and saves pin edits, THE PlaceSheet SHALL persist the updated title and description to Supabase by updating the corresponding row in the `pins` table.
-10. IF the Supabase update fails for an authenticated user, THEN THE PlaceSheet SHALL retain the local store update and log the error to the console.
+1. THE CollectionCard SHALL render the Header_Region as a non-interactive container element (`div` without `role="button"` and without `tabIndex`).
+2. THE CollectionCard SHALL render a discrete `button` element wrapping the image grid, title area, and chevron to serve as the accordion toggle.
+3. THE Options_Menu toggle button SHALL be a sibling of the accordion toggle button, not a descendant of it.
+4. WHEN the accordion toggle button is activated, THE CollectionCard SHALL toggle the expanded state and invoke the `onClick` callback with the collection ID.
+5. WHEN the Options_Menu toggle button is activated, THE CollectionCard SHALL open the dropdown menu without toggling the accordion.
+6. THE Header_Region SHALL NOT contain any `button`, `a`, or element with an interactive role nested inside another `button` or element with an interactive role.
+7. WHEN a Pin_Row external link is activated inside the expanded section, THE CollectionCard SHALL navigate to the source URL without toggling the accordion or triggering the collection click handler.
 
-### Requirement 3: Collection Rename and Delete
+### Requirement 2: Prevent Collection Picker Clipping in PlaceSheet
 
-**User Story:** As a user, I want to rename or delete my custom collections, so that I can keep my folders organized and remove ones I no longer need.
+**User Story:** As a user creating a new collection from the PlaceSheet, I want the collection picker dropdown and its inline input to be fully visible, so that I can see and interact with the "New Collection" creation form without it being cut off.
 
 #### Acceptance Criteria
 
-1. THE CollectionDrawer SHALL display a MoreVertical icon button on each CollectionCard, excluding the "Unorganized" default collection.
-2. WHEN the user clicks the MoreVertical icon on a CollectionCard, THE CollectionDrawer SHALL display a dropdown menu with "Rename" and "Delete" options.
-3. WHEN the user selects "Rename", THE CollectionDrawer SHALL display an inline text input pre-populated with the current collection name and a confirm button.
-4. WHEN the user submits a non-empty rename value, THE CollectionDrawer SHALL update the collection name in the TravelPinStore and persist the change to Supabase for authenticated users.
-5. WHEN the user selects "Delete", THE CollectionDrawer SHALL display a confirmation prompt before proceeding.
-6. WHEN the user confirms deletion, THE CollectionDrawer SHALL call `removeCollection(id)` on the TravelPinStore, which moves contained pins back to "Unorganized".
-7. WHEN the user is authenticated and deletes a collection, THE CollectionDrawer SHALL delete the collection row from the Supabase `collections` table.
-8. THE CollectionDrawer SHALL not display rename or delete options for the "Unorganized" collection (id === "unorganized").
-9. THE TravelPinStore SHALL provide a `renameCollection(id: string, newName: string)` action that updates the collection name in state.
-10. IF the `renameCollection` action is called with the "unorganized" collection ID, THEN THE TravelPinStore SHALL make no state changes.
-
-### Requirement 4: Itinerary Delete Confirmation
-
-**User Story:** As a user, I want a confirmation dialog before deleting a trip, so that I do not accidentally lose my itinerary data.
-
-#### Acceptance Criteria
-
-1. WHEN the user clicks the delete button for an itinerary in the ItineraryToolbar, THE ItineraryToolbar SHALL display a confirmation dialog before calling `deleteItinerary`.
-2. WHEN the user confirms the deletion in the dialog, THE ItineraryToolbar SHALL call `deleteItinerary(itineraryId)` on the PlannerStore.
-3. WHEN the user cancels the deletion in the dialog, THE ItineraryToolbar SHALL close the dialog and make no changes to the itinerary.
-4. THE ItineraryToolbar SHALL use a visually distinct confirmation dialog that clearly communicates the destructive nature of the action, including the itinerary name.
+1. WHEN the Collection_Picker dropdown is open, THE PlaceSheet SHALL display the full dropdown including the "New Collection" button without visual clipping.
+2. WHEN the inline collection creation input is visible inside the Collection_Picker, THE PlaceSheet SHALL display the input field and Save button without visual clipping.
+3. THE Drawer_Content element of the PlaceSheet SHALL use an overflow strategy that allows the Collection_Picker dropdown to render fully within the visible viewport.
+4. THE PlaceSheet SHALL preserve its rounded top corners and drag-to-dismiss behavior after the overflow change.
+5. IF the Collection_Picker dropdown extends beyond the scrollable area, THEN THE PlaceSheet SHALL allow the user to scroll to reveal the full dropdown content.

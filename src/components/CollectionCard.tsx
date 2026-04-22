@@ -126,60 +126,60 @@ export default function CollectionCard({
   };
 
   return (
-    <div className="rounded-2xl border border-border bg-surface shadow-sm overflow-hidden">
+    <div className="rounded-2xl border border-border bg-surface shadow-sm overflow-visible">
       {/* Card header — clickable */}
-      <div className="flex w-full items-center gap-3 p-3">
-        <button
-          type="button"
-          onClick={handleClick}
-          className="flex flex-1 items-center gap-3 text-left transition-colors hover:bg-gray-50 min-w-0"
-          aria-expanded={expanded}
-        >
-          <ImageGrid pins={pins} />
+      <div
+        role="button"
+        tabIndex={0}
+        onClick={handleClick}
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleClick(); }}
+        className="flex w-full items-center gap-3 p-3 cursor-pointer transition-colors hover:bg-gray-50"
+        aria-expanded={expanded}
+      >
+        <ImageGrid pins={pins} />
 
-          <div className="flex-1 min-w-0">
-            {isRenaming ? (
-              <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
-                <input
-                  ref={renameInputRef}
-                  type="text"
-                  value={renameValue}
-                  onChange={(e) => setRenameValue(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') handleRenameSubmit();
-                    if (e.key === 'Escape') handleRenameCancel();
-                  }}
-                  className="text-sm font-semibold text-primary border border-border rounded px-1.5 py-0.5 w-full bg-white focus:outline-none focus:ring-1 focus:ring-accent"
-                />
-                <button
-                  type="button"
-                  onClick={(e) => { e.stopPropagation(); handleRenameSubmit(); }}
-                  className="p-0.5 text-green-600 hover:text-green-700"
-                  aria-label="Confirm rename"
-                >
-                  <Check size={14} />
-                </button>
-                <button
-                  type="button"
-                  onClick={(e) => { e.stopPropagation(); handleRenameCancel(); }}
-                  className="p-0.5 text-gray-400 hover:text-gray-600"
-                  aria-label="Cancel rename"
-                >
-                  <X size={14} />
-                </button>
-              </div>
-            ) : (
-              <>
-                <span className="text-sm font-semibold text-primary truncate block">
-                  {collection.name}
-                </span>
-                <span className="text-xs text-gray-400">
-                  {pins.length} {pins.length === 1 ? 'pin' : 'pins'}
-                </span>
-              </>
-            )}
-          </div>
-        </button>
+        <div className="flex-1 min-w-0">
+          {isRenaming ? (
+            <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
+              <input
+                ref={renameInputRef}
+                type="text"
+                value={renameValue}
+                onChange={(e) => setRenameValue(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleRenameSubmit();
+                  if (e.key === 'Escape') handleRenameCancel();
+                }}
+                className="text-sm font-semibold text-primary border border-border rounded px-1.5 py-0.5 w-full bg-white focus:outline-none focus:ring-1 focus:ring-accent"
+              />
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); handleRenameSubmit(); }}
+                className="p-0.5 text-green-600 hover:text-green-700"
+                aria-label="Confirm rename"
+              >
+                <Check size={14} />
+              </button>
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); handleRenameCancel(); }}
+                className="p-0.5 text-gray-400 hover:text-gray-600"
+                aria-label="Cancel rename"
+              >
+                <X size={14} />
+              </button>
+            </div>
+          ) : (
+            <>
+              <span className="text-sm font-semibold text-primary truncate block">
+                {collection.name}
+              </span>
+              <span className="text-xs text-gray-400">
+                {pins.length} {pins.length === 1 ? 'pin' : 'pins'}
+              </span>
+            </>
+          )}
+        </div>
 
         {/* MoreVertical menu — hidden for default collection */}
         {!isDefault && (
@@ -194,7 +194,7 @@ export default function CollectionCard({
             </button>
 
             {menuOpen && !isRenaming && (
-              <div className="absolute right-0 top-full mt-1 z-50 w-32 rounded-lg border border-border bg-surface shadow-md py-1">
+              <div className="absolute right-0 top-full mt-1 z-[100] w-32 rounded-lg border border-border bg-surface shadow-md py-1">
                 <button
                   type="button"
                   onClick={(e) => {
@@ -236,7 +236,7 @@ export default function CollectionCard({
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
             transition={{ duration: 0.25, ease: 'easeInOut' }}
-            className="overflow-hidden"
+            className="overflow-hidden rounded-b-2xl"
           >
             <div className="px-3 pb-3 border-t border-border">
               {pins.length === 0 ? (
