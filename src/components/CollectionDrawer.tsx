@@ -1,11 +1,12 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Drawer } from 'vaul';
 import { Menu, X } from 'lucide-react';
 import useTravelPinStore from '@/store/useTravelPinStore';
 import CollectionCard from '@/components/CollectionCard';
+import { createClient } from '@/utils/supabase/client';
 
 export interface CollectionDrawerProps {
   isOpen: boolean;
@@ -17,6 +18,9 @@ function DrawerContent() {
   const collections = useTravelPinStore((s) => s.collections);
   const pins = useTravelPinStore((s) => s.pins);
   const setActiveCollection = useTravelPinStore((s) => s.setActiveCollection);
+  const renameCollection = useTravelPinStore((s) => s.renameCollection);
+  const removeCollection = useTravelPinStore((s) => s.removeCollection);
+  const user = useTravelPinStore((s) => s.user);
 
   // Ensure "Unorganized" is always first
   const sorted = [...collections].sort((a, b) => {
@@ -28,6 +32,38 @@ function DrawerContent() {
   const handleCollectionClick = (collectionId: string) => {
     setActiveCollection(collectionId);
   };
+
+  const handleRename = useCallback(
+    (id: string, newName: string) => {
+      renameCollection(id, newName);
+    },
+    [renameCollection],
+  );
+
+  const handleDelete = useCallback(
+    (id: string) => {
+      removeCollection(id);
+
+      // Fire-and-forget Supabase delete for authenticated users
+      if (user) {
+        try {
+          const supabase = createClient();
+          supabase
+            .from('collections')
+            .delete()
+            .eq('id', id)
+            .then(({ error }) => {
+              if (error) {
+                console.error('[CollectionDrawer] Failed to delete collection from Supabase:', error);
+              }
+            });
+        } catch (err) {
+          console.error('[CollectionDrawer] Supabase client error:', err);
+        }
+      }
+    },
+    [removeCollection, user],
+  );
 
   return (
     <div className="p-4">
@@ -49,6 +85,9 @@ function DrawerContent() {
                 collection={collection}
                 pins={collectionPins}
                 onClick={handleCollectionClick}
+                onRename={handleRename}
+                onDelete={handleDelete}
+                isDefault={collection.id === 'unorganized'}
               />
             );
           })}

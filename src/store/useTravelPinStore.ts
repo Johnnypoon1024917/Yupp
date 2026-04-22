@@ -21,6 +21,8 @@ export interface TravelPinStore {
   movePin: (pinId: string, collectionId: string) => void;
   addCollection: (name: string) => Collection;
   removeCollection: (collectionId: string) => void;
+  updatePin: (id: string, updates: Partial<Pin>) => void;
+  renameCollection: (id: string, newName: string) => void;
   setActiveCollection: (collectionId: string | null) => void;
   toggleDrawer: () => void;
   setActivePinId: (pinId: string | null) => void;
@@ -144,6 +146,65 @@ const useTravelPinStore = create<TravelPinStore>()(
               : p
           ),
         }));
+      },
+
+      updatePin: (id, updates) => {
+        const currentState = useTravelPinStore.getState();
+        const pinExists = currentState.pins.some((p) => p.id === id);
+        if (!pinExists) return;
+
+        set((state) => ({
+          pins: state.pins.map((p) =>
+            p.id === id ? { ...p, ...updates } : p
+          ),
+        }));
+
+        // Fire-and-forget Supabase persistence for authenticated users
+        if (currentState.user) {
+          try {
+            const supabase = createClient();
+            supabase
+              .from('pins')
+              .update(updates)
+              .eq('id', id)
+              .then(({ error }) => {
+                if (error) {
+                  console.error('[updatePin] Failed to persist pin update:', error);
+                }
+              });
+          } catch (err) {
+            console.error('[updatePin] Supabase client error:', err);
+          }
+        }
+      },
+
+      renameCollection: (id, newName) => {
+        if (id === 'unorganized') return;
+
+        set((state) => ({
+          collections: state.collections.map((c) =>
+            c.id === id ? { ...c, name: newName } : c
+          ),
+        }));
+
+        // Fire-and-forget Supabase persistence for authenticated users
+        const currentState = useTravelPinStore.getState();
+        if (currentState.user) {
+          try {
+            const supabase = createClient();
+            supabase
+              .from('collections')
+              .update({ name: newName })
+              .eq('id', id)
+              .then(({ error }) => {
+                if (error) {
+                  console.error('[renameCollection] Failed to persist collection rename:', error);
+                }
+              });
+          } catch (err) {
+            console.error('[renameCollection] Supabase client error:', err);
+          }
+        }
       },
 
       setActiveCollection: (collectionId) => {

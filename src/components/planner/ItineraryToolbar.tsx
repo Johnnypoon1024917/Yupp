@@ -20,6 +20,8 @@ export default function ItineraryToolbar() {
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const newNameInputRef = useRef<HTMLInputElement>(null);
   const renameInputRef = useRef<HTMLInputElement>(null);
@@ -48,8 +50,22 @@ export default function ItineraryToolbar() {
     setRenameValue('');
   };
 
-  const handleDelete = async (id: string) => {
-    await deleteItinerary(id);
+  const handleDeleteClick = (id: string) => {
+    setDeletingId(id);
+    setShowDeleteConfirm(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (deletingId) {
+      await deleteItinerary(deletingId);
+    }
+    setShowDeleteConfirm(false);
+    setDeletingId(null);
+  };
+
+  const handleDeleteCancel = () => {
+    setShowDeleteConfirm(false);
+    setDeletingId(null);
   };
 
   const handleSave = async () => {
@@ -66,9 +82,47 @@ export default function ItineraryToolbar() {
     });
   };
 
+  const deletingName =
+    deletingId
+      ? (itineraries.find((it) => it.id === deletingId)?.name ??
+         (activeItinerary?.id === deletingId ? activeItinerary.name : 'this itinerary'))
+      : '';
+
+  const deleteConfirmDialog = showDeleteConfirm && (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+      onClick={handleDeleteCancel}
+    >
+      <div
+        className="bg-surface rounded-xl shadow-lg p-6 w-full max-w-sm mx-4"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h3 className="text-base font-semibold text-primary mb-1">Delete trip</h3>
+        <p className="text-sm text-neutral-500 mb-4">
+          Are you sure you want to delete <span className="font-medium text-primary">{deletingName}</span>? This action is permanent and cannot be undone.
+        </p>
+        <div className="flex items-center justify-end gap-2">
+          <button
+            onClick={handleDeleteCancel}
+            className="px-4 py-2 text-sm font-medium rounded-lg border border-border text-primary hover:bg-neutral-50 transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleDeleteConfirm}
+            className="px-4 py-2 text-sm font-medium rounded-lg bg-red-500 text-white hover:bg-red-600 transition-colors"
+          >
+            Delete
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
   // --- Active itinerary header ---
   if (activeItinerary) {
     return (
+      <>
       <div className="flex items-center gap-2 px-3 py-2 bg-surface border-b border-border">
         <button
           onClick={handleBack}
@@ -118,18 +172,21 @@ export default function ItineraryToolbar() {
         </button>
 
         <button
-          onClick={() => handleDelete(activeItinerary.id)}
+          onClick={() => handleDeleteClick(activeItinerary.id)}
           className="p-1.5 rounded-md text-neutral-400 hover:text-red-500 hover:bg-red-50 transition-colors"
           aria-label="Delete itinerary"
         >
           <Trash2 className="w-4 h-4" />
         </button>
       </div>
+      {deleteConfirmDialog}
+      </>
     );
   }
 
   // --- Itinerary list view ---
   return (
+    <>
     <div className="px-3 py-2 bg-surface border-b border-border space-y-2">
       <div className="flex items-center justify-between">
         <h2 className="text-sm font-semibold">My Trips</h2>
@@ -180,13 +237,15 @@ export default function ItineraryToolbar() {
               onRenameChange={setRenameValue}
               onRenameSubmit={() => handleRename(it.id)}
               onRenameCancel={() => setRenamingId(null)}
-              onDelete={() => handleDelete(it.id)}
+              onDelete={() => handleDeleteClick(it.id)}
               renameInputRef={renameInputRef}
             />
           ))}
         </ul>
       )}
     </div>
+    {deleteConfirmDialog}
+    </>
   );
 }
 

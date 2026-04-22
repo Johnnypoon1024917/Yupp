@@ -25,6 +25,8 @@ vi.mock('lucide-react', () => ({
   Share2: (props: any) => React.createElement('svg', props),
   FolderOpen: (props: any) => React.createElement('svg', props),
   Check: (props: any) => React.createElement('svg', props),
+  Plus: (props: any) => React.createElement('svg', props),
+  Pencil: (props: any) => React.createElement('svg', props),
   Utensils: (props: any) => React.createElement('svg', { ...props, 'data-icon': 'utensils' }),
   Bed: (props: any) => React.createElement('svg', { ...props, 'data-icon': 'bed' }),
   Camera: (props: any) => React.createElement('svg', { ...props, 'data-icon': 'camera' }),
@@ -83,6 +85,8 @@ describe('PlaceSheet category pill and image fallback', () => {
     storeState = {
       removePin: vi.fn(),
       movePin: vi.fn(),
+      addCollection: vi.fn(),
+      updatePin: vi.fn(),
       collections: [
         { id: 'unorganized', name: 'Unorganized', createdAt: new Date().toISOString() },
       ],

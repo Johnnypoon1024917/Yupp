@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from "react";
 import { Drawer } from "vaul";
-import { Share2, FolderOpen, Check, Utensils, Bed, Camera, ShoppingBag, MapPin } from "lucide-react";
+import { Share2, FolderOpen, Check, Plus, Pencil, Utensils, Bed, Camera, ShoppingBag, MapPin } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import useTravelPinStore from "@/store/useTravelPinStore";
 import { getAffiliateLink } from "@/utils/affiliateLinks";
@@ -26,10 +26,17 @@ export interface PlaceSheetProps {
 export default function PlaceSheet({ pin, onDismiss }: PlaceSheetProps) {
   const removePin = useTravelPinStore((s) => s.removePin);
   const movePin = useTravelPinStore((s) => s.movePin);
+  const addCollection = useTravelPinStore((s) => s.addCollection);
+  const updatePin = useTravelPinStore((s) => s.updatePin);
   const collections = useTravelPinStore((s) => s.collections);
   const setActivePinId = useTravelPinStore((s) => s.setActivePinId);
 
   const [collectionPickerOpen, setCollectionPickerOpen] = useState(false);
+  const [isCreatingCollection, setIsCreatingCollection] = useState(false);
+  const [newCollectionName, setNewCollectionName] = useState("");
+  const [isEditing, setIsEditing] = useState(false);
+  const [editTitle, setEditTitle] = useState("");
+  const [editDescription, setEditDescription] = useState("");
 
   const affiliateResult = pin ? getAffiliateLink(pin) : null;
 
@@ -76,12 +83,41 @@ export default function PlaceSheet({ pin, onDismiss }: PlaceSheetProps) {
     [pin, movePin]
   );
 
+  const handleCreateCollection = useCallback(() => {
+    if (!pin) return;
+    const trimmed = newCollectionName.trim();
+    if (!trimmed) return;
+    const newCollection = addCollection(trimmed);
+    movePin(pin.id, newCollection.id);
+    setCollectionPickerOpen(false);
+    setIsCreatingCollection(false);
+    setNewCollectionName("");
+  }, [pin, newCollectionName, addCollection, movePin]);
+
+  const handleStartEditing = useCallback(() => {
+    if (!pin) return;
+    setEditTitle(pin.title);
+    setEditDescription(pin.description ?? "");
+    setIsEditing(true);
+  }, [pin]);
+
+  const handleSaveEdit = useCallback(() => {
+    if (!pin) return;
+    updatePin(pin.id, { title: editTitle, description: editDescription });
+    setIsEditing(false);
+  }, [pin, updatePin, editTitle, editDescription]);
+
   return (
     <Drawer.Root
       open={pin !== null}
       onOpenChange={(open) => {
         if (!open) {
           setCollectionPickerOpen(false);
+          setIsCreatingCollection(false);
+          setNewCollectionName("");
+          setIsEditing(false);
+          setEditTitle("");
+          setEditDescription("");
           onDismiss();
         }
       }}
@@ -147,12 +183,31 @@ export default function PlaceSheet({ pin, onDismiss }: PlaceSheetProps) {
                 </span>
 
                 {/* 1. The Brand (Title) */}
-                <h2
-                  className="text-[26px] leading-[30px] font-extrabold tracking-[-0.8px] text-[#111111]"
-                  style={{ margin: 0 }}
-                >
-                  {pin.title}
-                </h2>
+                {isEditing ? (
+                  <input
+                    type="text"
+                    value={editTitle}
+                    onChange={(e) => setEditTitle(e.target.value)}
+                    className="text-[26px] leading-[30px] font-extrabold tracking-[-0.8px] text-[#111111] w-full border border-[#E4E4E7] rounded-lg px-2 py-1 outline-none focus:border-[#A1A1AA] transition-colors"
+                  />
+                ) : (
+                  <div className="flex items-start gap-2">
+                    <h2
+                      className="text-[26px] leading-[30px] font-extrabold tracking-[-0.8px] text-[#111111] flex-1"
+                      style={{ margin: 0 }}
+                    >
+                      {pin.title}
+                    </h2>
+                    <button
+                      type="button"
+                      onClick={handleStartEditing}
+                      className="mt-1 p-1 text-[#A1A1AA] hover:text-[#3F3F46] active:opacity-60 transition-colors flex-shrink-0"
+                      aria-label="Edit pin"
+                    >
+                      <Pencil size={16} />
+                    </button>
+                  </div>
+                )}
 
                 {/* Social proof badge */}
                 {pin.rating != null && pin.rating > 4.5 && (
@@ -195,6 +250,41 @@ export default function PlaceSheet({ pin, onDismiss }: PlaceSheetProps) {
                           )}
                         </button>
                       ))}
+
+                      {/* Inline collection creation */}
+                      <div className="border-t border-[#F4F4F5] mt-[2px] pt-[2px]">
+                        {isCreatingCollection ? (
+                          <div className="flex items-center gap-2 px-[14px] py-[8px]">
+                            <input
+                              type="text"
+                              value={newCollectionName}
+                              onChange={(e) => setNewCollectionName(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") handleCreateCollection();
+                              }}
+                              placeholder="Collection name"
+                              className="flex-1 min-w-0 text-[13px] px-2 py-1 border border-[#E4E4E7] rounded-lg outline-none focus:border-[#A1A1AA] transition-colors"
+                              autoFocus
+                            />
+                            <button
+                              type="button"
+                              onClick={handleCreateCollection}
+                              className="text-[12px] font-semibold text-white bg-black rounded-lg px-3 py-1 active:opacity-60 transition-opacity"
+                            >
+                              Save
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => setIsCreatingCollection(true)}
+                            className="w-full flex items-center gap-2 px-[14px] py-[10px] text-[13px] text-[#3F3F46] hover:bg-[#F4F4F5] transition-colors text-left"
+                          >
+                            <Plus size={14} className="flex-shrink-0" />
+                            <span className="font-medium">New Collection</span>
+                          </button>
+                        )}
+                      </div>
                     </div>
                   )}
                 </div>
@@ -220,7 +310,24 @@ export default function PlaceSheet({ pin, onDismiss }: PlaceSheetProps) {
 
                 {/* 5. The Vibe (Description) — separated by subtle divider */}
                 <div className="mt-[24px] mb-[24px] h-[1px] w-full bg-[#F4F4F5]" />
-                {pin.description ? (
+                {isEditing ? (
+                  <>
+                    <textarea
+                      value={editDescription}
+                      onChange={(e) => setEditDescription(e.target.value)}
+                      rows={4}
+                      placeholder="Add a description..."
+                      className="text-[13px] leading-[22px] text-[#52525B] w-full border border-[#E4E4E7] rounded-lg px-2 py-1 outline-none focus:border-[#A1A1AA] transition-colors resize-none"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleSaveEdit}
+                      className="mt-3 h-[44px] w-full bg-black text-white text-[14px] font-bold rounded-[14px] flex items-center justify-center transition-all active:scale-[0.97] hover:bg-[#222222]"
+                    >
+                      Save Changes
+                    </button>
+                  </>
+                ) : pin.description ? (
                   <p className="text-[13px] leading-[22px] text-[#52525B] italic tracking-[0.1px] line-clamp-6">
                     {pin.description}
                   </p>
