@@ -6,12 +6,12 @@ Add a `callCustomLLM` function to `src/actions/extractPlaces.ts` and reorder the
 
 ## Tasks
 
-- [ ] 1. Add Custom LLM environment variable placeholders
+- [x] 1. Add Custom LLM environment variable placeholders
   - Add `CUSTOM_LLM_ENDPOINT`, `CUSTOM_LLM_API_KEY`, and `CUSTOM_LLM_MODEL` with placeholder values and a descriptive comment block to `.env.local.example`
   - _Requirements: 1.1_
 
-- [ ] 2. Implement `callCustomLLM` function and reorder the fallback chain
-  - [ ] 2.1 Implement the `callCustomLLM` function in `src/actions/extractPlaces.ts`
+- [x] 2. Implement `callCustomLLM` function and reorder the fallback chain
+  - [x] 2.1 Implement the `callCustomLLM` function in `src/actions/extractPlaces.ts`
     - Add a private `callCustomLLM(prompt: string): Promise<string | null>` function
     - Return `null` immediately when `CUSTOM_LLM_ENDPOINT` is missing or empty
     - Read `CUSTOM_LLM_API_KEY` from `process.env`; include `Authorization: Bearer <key>` header only when key is non-empty
@@ -23,7 +23,7 @@ Add a `callCustomLLM` function to `src/actions/extractPlaces.ts` and reorder the
     - Return the content string on success
     - _Requirements: 1.2, 1.3, 1.4, 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 2.7, 2.8_
 
-  - [ ] 2.2 Reorder `extractPlacesWithAI` to the three-tier fallback chain
+  - [x] 2.2 Reorder `extractPlacesWithAI` to the three-tier fallback chain
     - Restructure the orchestrator to attempt providers in order: `callCustomLLM` → `callGemini` → `callDeepSeek`
     - Extend skip/fail tracking from two booleans to three (`customSkipped`, `geminiSkipped`, `deepSeekSkipped`)
     - Return immediately when any provider yields a non-empty parsed `ExtractedPlace[]`
@@ -63,7 +63,7 @@ Add a `callCustomLLM` function to `src/actions/extractPlaces.ts` and reorder the
     - Verify `callCustomLLM` returns the exact content string
     - **Validates: Requirements 2.8**
 
-- [ ] 3. Checkpoint — Verify `callCustomLLM` and reordered chain
+- [x] 3. Checkpoint — Verify `callCustomLLM` and reordered chain
   - Ensure all tests pass, ask the user if questions arise.
 
 - [ ] 4. Orchestrator fallback chain property tests
@@ -85,7 +85,7 @@ Add a `callCustomLLM` function to `src/actions/extractPlaces.ts` and reorder the
     - Mock all three providers to skip/fail/return empty; verify the returned array contains a single element with the expected fallback name and empty `contextualHints`
     - **Validates: Requirements 3.8**
 
-- [ ] 5. Final checkpoint — Ensure all tests pass
+- [x] 5. Final checkpoint — Ensure all tests pass
   - Ensure all tests pass, ask the user if questions arise.
 
 ## Notes

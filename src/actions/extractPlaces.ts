@@ -79,6 +79,62 @@ export function parseLLMResponse(raw: string): ExtractedPlace[] {
 }
 
 /**
+ * Call a custom OpenAI-compatible LLM endpoint.
+ * Returns the assistant message content on success, or null if
+ * CUSTOM_LLM_ENDPOINT is not set or empty (indicating the provider should be skipped).
+ * Throws on network errors or non-OK responses so the fallback chain can proceed.
+ * Enforces a 10-second timeout via AbortController.
+ */
+async function callCustomLLM(prompt: string): Promise<string | null> {
+  const endpoint = process.env.CUSTOM_LLM_ENDPOINT;
+  if (!endpoint) {
+    return null;
+  }
+
+  const apiKey = process.env.CUSTOM_LLM_API_KEY;
+  const model = process.env.CUSTOM_LLM_MODEL || 'default';
+
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  };
+  if (apiKey) {
+    headers['Authorization'] = `Bearer ${apiKey}`;
+  }
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 10_000);
+
+  try {
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        model,
+        messages: [{ role: 'user', content: prompt }],
+      }),
+      signal: controller.signal,
+    });
+
+    if (!response.ok) {
+      throw new Error(`Custom LLM API error: ${response.status} ${response.statusText}`);
+    }
+
+    const data = (await response.json()) as {
+      choices?: { message?: { content?: string } }[];
+    };
+
+    const content = data.choices?.[0]?.message?.content;
+    if (typeof content !== 'string') {
+      throw new Error('Custom LLM returned no content in response');
+    }
+
+    return content;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+/**
  * Call the DeepSeek chat completions API (OpenAI-compatible).
  * Returns the assistant message content on success, or null if
  * DEEPSEEK_API_KEY is not set (indicating the provider should be skipped).
@@ -209,7 +265,7 @@ export function extractPlaceNameFromCaption(caption: string): string | null {
 }
 
 /**
- * Orchestrator: extract places from a caption using the DeepSeek → Gemini → og:title fallback chain.
+ * Orchestrator: extract places from a caption using the Custom LLM → Gemini → DeepSeek → caption heuristics/og:title fallback chain.
  * Returns an array of ExtractedPlace objects. Always returns at least one place (the og:title fallback).
  */
 export async function extractPlacesWithAI(
@@ -218,21 +274,21 @@ export async function extractPlacesWithAI(
 ): Promise<ExtractedPlace[]> {
   const prompt = buildExtractionPrompt(caption);
 
-  // --- Try DeepSeek ---
-  let deepSeekSkipped = false;
+  // --- Try Custom LLM ---
+  let customSkipped = false;
   try {
-    const deepSeekResult = await callDeepSeek(prompt);
-    if (deepSeekResult === null) {
-      deepSeekSkipped = true;
+    const customResult = await callCustomLLM(prompt);
+    if (customResult === null) {
+      customSkipped = true;
     } else {
-      const parsed = parseLLMResponse(deepSeekResult);
+      const parsed = parseLLMResponse(customResult);
       if (parsed.length > 0) {
         return parsed;
       }
       // Empty parsed result — fall through to Gemini
     }
   } catch {
-    // DeepSeek threw — fall through to Gemini
+    // Custom LLM threw — fall through to Gemini
   }
 
   // --- Try Gemini ---
@@ -246,17 +302,34 @@ export async function extractPlacesWithAI(
       if (parsed.length > 0) {
         return parsed;
       }
-      // Empty parsed result — fall through to og:title
+      // Empty parsed result — fall through to DeepSeek
     }
   } catch {
-    // Gemini threw — fall through to og:title
+    // Gemini threw — fall through to DeepSeek
+  }
+
+  // --- Try DeepSeek ---
+  let deepSeekSkipped = false;
+  try {
+    const deepSeekResult = await callDeepSeek(prompt);
+    if (deepSeekResult === null) {
+      deepSeekSkipped = true;
+    } else {
+      const parsed = parseLLMResponse(deepSeekResult);
+      if (parsed.length > 0) {
+        return parsed;
+      }
+      // Empty parsed result — fall through to caption heuristics
+    }
+  } catch {
+    // DeepSeek threw — fall through to caption heuristics
   }
 
   // --- Fallback to caption heuristics → og:title ---
-  if (deepSeekSkipped && geminiSkipped) {
-    console.warn('extractPlacesWithAI: both DEEPSEEK_API_KEY and GEMINI_API_KEY are missing — falling back to caption heuristics');
+  if (customSkipped && geminiSkipped && deepSeekSkipped) {
+    console.warn('extractPlacesWithAI: all three API keys/endpoints are missing — falling back to caption heuristics');
   } else {
-    console.warn('extractPlacesWithAI: both LLM providers failed — falling back to caption heuristics');
+    console.warn('extractPlacesWithAI: all three AI providers failed — falling back to caption heuristics');
   }
 
   // Try to extract a meaningful place name from the caption before using og:title

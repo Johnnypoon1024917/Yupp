@@ -6,15 +6,15 @@ Add a Xiaohongshu-specific extraction path to `src/actions/scrapeUrl.ts`. Change
 
 ## Tasks
 
-- [ ] 1. Make `detectLoginWall` platform-aware
-  - [ ] 1.1 Update `detectLoginWall` signature to accept optional `platform` parameter
+- [x] 1. Make `detectLoginWall` platform-aware
+  - [x] 1.1 Update `detectLoginWall` signature to accept optional `platform` parameter
     - Change signature from `detectLoginWall(page: Page)` to `detectLoginWall(page: Page, platform?: Platform)`
     - When `platform` is `'xiaohongshu'`, return `false` immediately without inspecting the DOM
     - For all other platform values (including `undefined`), run the existing login wall logic unchanged
     - Import `Platform` type from `@/types` if not already imported
     - _Requirements: 1.1, 1.2, 1.3_
 
-  - [ ] 1.2 Update `scrapeUrl` to resolve platform before login wall detection
+  - [x] 1.2 Update `scrapeUrl` to resolve platform before login wall detection
     - Move the `detectPlatform(url)` call to before the `detectLoginWall` call
     - Pass the resolved `platform` as the second argument to `detectLoginWall(page, platform)`
     - _Requirements: 1.4, 1.5_
@@ -26,15 +26,15 @@ Add a Xiaohongshu-specific extraction path to `src/actions/scrapeUrl.ts`. Change
     - Follow existing JSDOM mock page pattern from `scrapeUrl.pbt.test.ts`
     - **Validates: Requirements 1.1, 1.2**
 
-- [ ] 2. Implement `extractXiaohongshuData` function
-  - [ ] 2.1 Create `extractXiaohongshuData` function with `__INITIAL_STATE__` extraction
+- [x] 2. Implement `extractXiaohongshuData` function
+  - [x] 2.1 Create `extractXiaohongshuData` function with `__INITIAL_STATE__` extraction
     - Add exported async function `extractXiaohongshuData(page: Page): Promise<{ title: string; description: string; imageUrl: string } | null>`
     - Use `page.evaluate()` to access `window.__INITIAL_STATE__.note.noteDetailMap`
     - Take the first entry's `note` object, read `title`, `desc`, and `imageList[0].urlDefault` (or `url`)
     - Wrap the entire evaluate callback in try/catch so malformed data never throws
     - _Requirements: 2.1, 2.4, 2.5_
 
-  - [ ] 2.2 Add DOM selector fallback to `extractXiaohongshuData`
+  - [x] 2.2 Add DOM selector fallback to `extractXiaohongshuData`
     - When `__INITIAL_STATE__` is absent, empty, or malformed, fall back to DOM selectors
     - Query `#detail-title` for title, `#detail-desc` for description, `.note-scroller img` for first image `src`
     - If all three fields are present, return the object; if any field is missing, return `null`
@@ -60,11 +60,11 @@ Add a Xiaohongshu-specific extraction path to `src/actions/scrapeUrl.ts`. Change
     - Assert `extractXiaohongshuData` returns `null`
     - **Validates: Requirements 2.3, 4.3**
 
-- [ ] 3. Checkpoint - Verify core extraction logic
+- [x] 3. Checkpoint - Verify core extraction logic
   - Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 4. Route Xiaohongshu URLs through specialized extractor in `scrapeUrl`
-  - [ ] 4.1 Add Xiaohongshu routing logic to `scrapeUrl`
+- [x] 4. Route Xiaohongshu URLs through specialized extractor in `scrapeUrl`
+  - [x] 4.1 Add Xiaohongshu routing logic to `scrapeUrl`
     - After login wall check, if `platform === 'xiaohongshu'`, call `extractXiaohongshuData(page)` inside a try/catch
     - If result is non-null, use its `title`, `description`, and `imageUrl` directly, bypassing the generic extractor
     - If result is `null` or throws, fall through to the existing generic extraction pipeline
@@ -83,7 +83,7 @@ Add a Xiaohongshu-specific extraction path to `src/actions/scrapeUrl.ts`. Change
     - Test that `platform` is correctly set in `ScrapeResult`
     - _Requirements: 3.1, 3.2, 3.3, 3.4, 3.5, 3.6, 4.1_
 
-- [ ] 5. Final checkpoint - Ensure all tests pass
+- [x] 5. Final checkpoint - Ensure all tests pass
   - Ensure all tests pass, ask the user if questions arise.
 
 ## Notes

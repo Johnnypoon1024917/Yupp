@@ -2,7 +2,7 @@
 
 import puppeteer from 'puppeteer-core';
 import type { Browser, Page } from 'puppeteer-core';
-import type { ScrapeResult, ScrapeError } from '@/types';
+import type { ScrapeResult, ScrapeError, Platform } from '@/types';
 import { detectPlatform, extractPlacesWithAI } from '@/actions/extractPlaces';
 
 const DESKTOP_USER_AGENT =
@@ -42,7 +42,9 @@ export async function navigateWithTimeout(page: Page, url: string): Promise<void
  * Returns true if the title contains "log in" (case-insensitive) AND
  * the page lacks both <article> and <main> elements while containing a login form.
  */
-export async function detectLoginWall(page: Page): Promise<boolean> {
+export async function detectLoginWall(page: Page, platform?: Platform): Promise<boolean> {
+  if (platform === 'xiaohongshu') return false;
+
   return page.evaluate(() => {
     const title = document.title || '';
     const hasLogInTitle = /log\s*in/i.test(title);
@@ -375,6 +377,80 @@ export async function splitTitleAndDescription(rawTitle: string): Promise<{ titl
 }
 
 /**
+ * Extract Xiaohongshu post data from the page's __INITIAL_STATE__ JavaScript object.
+ * Reads note.noteDetailMap for title, description, and first image URL.
+ * Returns null if extraction fails (malformed data, missing fields, etc.).
+ */
+export async function extractXiaohongshuData(
+  page: Page
+): Promise<{ title: string; description: string; imageUrl: string } | null> {
+  return page.evaluate(() => {
+    try {
+      // Strategy 1: __INITIAL_STATE__ extraction
+      try {
+        const state = (window as Record<string, unknown>).__INITIAL_STATE__ as
+          | {
+              note?: {
+                noteDetailMap?: Record<
+                  string,
+                  {
+                    note?: {
+                      title?: string;
+                      desc?: string;
+                      imageList?: Array<{ urlDefault?: string; url?: string }>;
+                    };
+                  }
+                >;
+              };
+            }
+          | undefined;
+
+        const noteDetailMap = state?.note?.noteDetailMap;
+        if (noteDetailMap) {
+          const entries = Object.values(noteDetailMap);
+          if (entries.length > 0) {
+            const note = entries[0]?.note;
+            if (note) {
+              const title = note.title;
+              const desc = note.desc;
+              const imageList = note.imageList;
+
+              if (
+                typeof title === 'string' &&
+                title &&
+                typeof desc === 'string' &&
+                Array.isArray(imageList) &&
+                imageList.length > 0
+              ) {
+                const imageUrl = imageList[0]?.urlDefault || imageList[0]?.url;
+                if (typeof imageUrl === 'string' && imageUrl) {
+                  return { title, description: desc, imageUrl };
+                }
+              }
+            }
+          }
+        }
+      } catch {
+        // __INITIAL_STATE__ extraction failed — fall through to DOM fallback
+      }
+
+      // Strategy 2: DOM selector fallback
+      const domTitle = document.querySelector('#detail-title')?.textContent?.trim();
+      const domDesc = document.querySelector('#detail-desc')?.textContent?.trim();
+      const domImg = document.querySelector('.note-scroller img')?.getAttribute('src')?.trim();
+
+      if (domTitle && domDesc && domImg) {
+        return { title: domTitle, description: domDesc, imageUrl: domImg };
+      }
+
+      return null;
+    } catch {
+      return null;
+    }
+  });
+}
+
+/**
  * Main scrapeUrl function — public API.
  * Validates URL, connects to remote browser, navigates, detects login walls,
  * extracts metadata, and returns ScrapeResult or ScrapeError.
@@ -415,8 +491,11 @@ export async function scrapeUrl(url: string): Promise<ScrapeResult | ScrapeError
       return { success: false, error: `Navigation failed: ${message}` };
     }
 
-    // Detect login wall
-    const isLoginWall = await detectLoginWall(page);
+    // Detect platform from URL
+    const platform = detectPlatform(url);
+
+    // Detect login wall (platform-aware: skips for xiaohongshu)
+    const isLoginWall = await detectLoginWall(page, platform);
     if (isLoginWall) {
       return {
         success: false,
@@ -424,13 +503,39 @@ export async function scrapeUrl(url: string): Promise<ScrapeResult | ScrapeError
       };
     }
 
-    // Detect platform from URL
-    const platform = detectPlatform(url);
+    let title: string;
+    let description: string | null;
+    let imageUrl: string | null;
 
-    // Extract metadata
-    const rawTitle = await extractTitle(page);
-    const { title, description } = await splitTitleAndDescription(rawTitle);
-    const imageUrl = await extractImage(page);
+    // Xiaohongshu-specific extraction path
+    if (platform === 'xiaohongshu') {
+      let xhsData: { title: string; description: string; imageUrl: string } | null = null;
+      try {
+        xhsData = await extractXiaohongshuData(page);
+      } catch {
+        // extractXiaohongshuData threw — fall through to generic pipeline
+      }
+
+      if (xhsData) {
+        title = xhsData.title;
+        description = xhsData.description;
+        imageUrl = xhsData.imageUrl;
+      } else {
+        // Fall back to generic extraction pipeline
+        const rawTitle = await extractTitle(page);
+        const split = await splitTitleAndDescription(rawTitle);
+        title = split.title;
+        description = split.description;
+        imageUrl = await extractImage(page);
+      }
+    } else {
+      // Generic extraction pipeline for non-Xiaohongshu platforms
+      const rawTitle = await extractTitle(page);
+      const split = await splitTitleAndDescription(rawTitle);
+      title = split.title;
+      description = split.description;
+      imageUrl = await extractImage(page);
+    }
 
     // Use AI extraction to find places from caption/description
     const caption = description ?? '';
