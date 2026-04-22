@@ -156,7 +156,7 @@ export async function geocodeLocation(input: {
         status: 'success',
         lat: winner.location.latitude,
         lng: winner.location.longitude,
-        displayName: winner.formattedAddress || winner.displayName.text,
+        displayName: winner.displayName.text,
         address: winner.formattedAddress ?? winner.displayName.text,
         enrichedData: {
           placeId: winner.id,

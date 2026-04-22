@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
 import "./globals.css";
 import ToastContainer from "@/components/ToastContainer";
@@ -9,9 +9,23 @@ const geistSans = localFont({
   weight: "100 900",
 });
 
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+  themeColor: '#FAFAFA',
+};
+
 export const metadata: Metadata = {
-  title: "Travel Pin Board",
-  description: "Save and visualize travel destinations on an interactive map",
+  title: 'YUPP | Travel Planner',
+  description: 'The AI-Powered Travel Command Center.',
+  manifest: '/manifest.json',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'default',
+    title: 'YUPP Travel',
+  },
 };
 
 export default function RootLayout({

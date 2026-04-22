@@ -114,14 +114,17 @@ const MagicBar = forwardRef<MagicBarRef, MagicBarProps>(function MagicBar({ onPi
         // Step 4: Add pins for each successfully geocoded place
         let pinnedCount = 0;
         let usedPlaceholder = false;
-        for (const result of geocodeResults) {
+        for (let i = 0; i < geocodeResults.length; i++) {
+          const result = geocodeResults[i];
           if (result.status !== 'fulfilled') continue;
           const geocodeResult = result.value;
           if (geocodeResult.status !== 'success') continue;
 
+          const place = scrapeResult.extractedPlaces[i];
           const resolvedImageUrl = scrapeResult.imageUrl ?? '/placeholder-pin.svg';
           const newPin = addPin({
-            title: scrapeResult.title,
+            title: geocodeResult.displayName || place.name || scrapeResult.title,
+            // Priority: Google Place name → AI-extracted name → IG title
             description: scrapeResult.description ?? undefined,
             imageUrl: resolvedImageUrl,
             sourceUrl: scrapeResult.sourceUrl,
