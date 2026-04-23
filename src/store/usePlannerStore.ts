@@ -159,7 +159,7 @@ const usePlannerStore = create<PlannerStore>()((set) => ({
   createItinerary: async (name, tripDate) => {
     const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
+    if (!user || user.is_anonymous) {
       console.error('[PlannerStore] No authenticated user');
       return;
     }
@@ -403,7 +403,7 @@ const usePlannerStore = create<PlannerStore>()((set) => ({
 
     // Check authentication
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
+    if (!user || user.is_anonymous) {
       console.error('[PlannerStore] cloneItinerary: No authenticated user');
       return null;
     }

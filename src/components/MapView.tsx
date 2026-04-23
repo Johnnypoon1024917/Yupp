@@ -15,7 +15,7 @@ export interface MapViewRef {
   enableInteractions: () => void;
 }
 
-const TILE_STYLE = 'https://tiles.stadiamaps.com/styles/alidade_smooth.json';
+const TILE_STYLE = 'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json';
 
 /** Layers to hide so only user-created markers are visible */
 const POI_LAYER_FILTERS = ['poi', 'label', 'icon', 'place', 'text'];
@@ -308,6 +308,7 @@ const MapView = forwardRef<MapViewRef, MapViewProps>(function MapView({ classNam
     });
 
     mapRef.current = map;
+    setTimeout(() => map.resize(), 100);
 
     return () => {
       map.remove();

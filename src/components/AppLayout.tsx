@@ -51,7 +51,7 @@ export default function AppLayout() {
       if (tab === 'plan') {
         // Login gateway: check auth before opening planner
         const user = useTravelPinStore.getState().user;
-        if (!user) {
+        if (!user || user.is_anonymous) {
           setAuthModalMessage('Log in to save and plan your own trips.');
           setIsAuthModalOpen(true);
           return;
@@ -145,7 +145,7 @@ export default function AppLayout() {
   }, []);
 
   return (
-    <div className="relative w-screen h-[100dvh] overflow-hidden overscroll-none bg-[#FAFAFA]">
+    <div className="relative w-screen h-screen h-[100dvh] overflow-hidden overscroll-none bg-[#FAFAFA]">
       <DndContext
         sensors={sensors}
         collisionDetection={rectIntersection}
