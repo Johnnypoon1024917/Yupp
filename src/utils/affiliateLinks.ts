@@ -74,19 +74,19 @@ export function getAffiliateLink(pin: Pin): AffiliateLinkResult | null {
     return null;
   }
 
-  const encodedTitle = encodeURIComponent(pin.title);
-  let searchValue = encodedTitle;
+  let searchValue = pin.title;
 
   if (pin.address) {
     const city = extractCity(pin.address);
-    const encodedCity = encodeURIComponent(city);
-    searchValue = `${encodedTitle}+${encodedCity}`;
+    searchValue = `${pin.title} ${city}`;
   }
 
-  const url = `${category.baseUrl}?${category.paramKey}=${searchValue}`;
+  const url = new URL(category.baseUrl);
+  url.searchParams.set(category.paramKey, searchValue);
+  const finalUrl = url.toString();
 
   return {
-    url,
+    url: finalUrl,
     platformName: category.platformName,
     label: category.label,
     bgColor: category.bgColor,

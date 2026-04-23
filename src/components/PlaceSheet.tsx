@@ -7,6 +7,7 @@ import type { LucideIcon } from "lucide-react";
 import useTravelPinStore from "@/store/useTravelPinStore";
 import { getAffiliateLink } from "@/utils/affiliateLinks";
 import { getCategoryGradient, getCategoryIcon } from "@/utils/categories";
+import { getGoogleMapsPlaceUrl } from "@/utils/mapExport";
 import { trackReferralClick } from "@/actions/trackReferralClick";
 import type { Pin } from "@/types";
 
@@ -392,6 +393,16 @@ export default function PlaceSheet({ pin, onDismiss }: PlaceSheetProps) {
                     <line x1="10" y1="14" x2="21" y2="3" />
                   </svg>
                   View Source
+                </a>
+
+                {/* Open in Google Maps */}
+                <a
+                  href={getGoogleMapsPlaceUrl(pin)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-[12px] h-[56px] w-full bg-white text-black border border-gray-300 text-[16px] font-bold rounded-[28px] flex items-center justify-center gap-[8px] transition-all active:scale-[0.97] hover:bg-gray-50"
+                >
+                  Open in Google Maps
                 </a>
 
                 {/* Remove Pin — destructive secondary action */}

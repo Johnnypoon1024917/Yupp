@@ -8,8 +8,9 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { motion, AnimatePresence } from 'framer-motion';
-import { GripVertical, MapPin } from 'lucide-react';
+import { GripVertical, Map, MapPin } from 'lucide-react';
 import type { PlannedPin } from '@/types';
+import { getGoogleMapsDirUrl } from '@/utils/mapExport';
 import BridgeElement from './BridgeElement';
 import PinCardSkeleton from './PinCardSkeleton';
 
@@ -91,10 +92,23 @@ export default function DayContainer({ dayNumber, pins, isLoading }: DayContaine
         isOver && !isLoading ? 'border-accent bg-accent/5' : 'border-gray-200 bg-white'
       }`}
     >
-      {/* Yaay Standard day header */}
-      <h3 className="text-[24px] font-extrabold tracking-[-0.5px] mb-6 text-[#111111]">
-        Day {dayNumber}
-      </h3>
+      {/* Day header with optional Map Route link */}
+      <div className="flex items-center justify-between mb-6">
+        <h3 className="text-[24px] font-extrabold tracking-[-0.5px] text-[#111111] m-0">
+          Day {dayNumber}
+        </h3>
+        {pins.length > 0 && (
+          <a
+            href={getGoogleMapsDirUrl(pins) || '#'}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-1.5 text-[13px] font-bold text-accent bg-accent/10 px-3 py-1.5 rounded-full hover:bg-accent/20 transition-colors"
+          >
+            <Map size={14} />
+            Map Route
+          </a>
+        )}
+      </div>
 
       {isLoading ? (
         <div className="flex flex-col gap-2">

@@ -110,12 +110,12 @@ describe('Feature: monetization-engine, Property 1: Category-to-platform mapping
           const base = expectedBaseUrl(primaryType);
           expect(result!.url).toContain(base);
 
-          // Decoded URL contains the URI-encoded pin title
-          expect(result!.url).toContain(encodeURIComponent(title));
-
-          // Decoded URL contains the URI-encoded city extracted from address
+          // Decoded search param equals "title city" (space-separated)
+          const url = new URL(result!.url);
+          const paramKey = url.search.split('=')[0].replace('?', '');
+          const searchValue = url.searchParams.get(paramKey);
           const city = extractCity(address);
-          expect(result!.url).toContain(encodeURIComponent(city));
+          expect(searchValue).toBe(`${title} ${city}`);
         },
       ),
       { numRuns: 100 },
@@ -137,11 +137,7 @@ describe('Feature: monetization-engine, Property 1: Category-to-platform mapping
           const base = expectedBaseUrl(primaryType);
           expect(result!.url).toContain(base);
 
-          // URL contains the encoded title
-          expect(result!.url).toContain(encodeURIComponent(title));
-
-          // URL should NOT contain a '+' after the encoded title (no city appended).
-          // The search value should be exactly the encoded title.
+          // Decoded search param equals the title (no city appended)
           const url = new URL(result!.url);
           const paramKey = url.search.split('=')[0].replace('?', '');
           const searchValue = url.searchParams.get(paramKey);
