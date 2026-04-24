@@ -85,3 +85,20 @@ export interface PublicTripData {
   itinerary: Itinerary & { isPublic: boolean };
   plannedPins: PlannedPin[];
 }
+
+export type UserRole = 'admin' | 'support' | 'user';
+
+export interface UserRoleRow {
+  user_id: string;
+  role: UserRole;
+  created_at: string;
+}
+
+export interface ActivityLog {
+  id: string;
+  user_id: string | null;
+  action: string;
+  entity_id: string | null;
+  metadata: Record<string, unknown>;
+  created_at: string;
+}
