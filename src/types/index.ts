@@ -102,3 +102,15 @@ export interface ActivityLog {
   metadata: Record<string, unknown>;
   created_at: string;
 }
+
+/** Discriminated union for Server Action return values. */
+export type ActionResult<T = void> =
+  | { success: true; data: T }
+  | { success: false; error: string };
+
+/** Payload item for saveItineraryAction. */
+export interface SaveDayItem {
+  pinId: string;
+  dayNumber: number;
+  sortOrder: number;
+}

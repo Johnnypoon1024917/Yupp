@@ -1,8 +1,15 @@
 import { create } from 'zustand';
 import { v4 as uuidv4 } from 'uuid';
-import type { Pin, Itinerary, PlannedPin } from '@/types';
+import type { Pin, Itinerary, PlannedPin, SaveDayItem } from '@/types';
 import { createClient } from '@/utils/supabase/client';
 import useToastStore from '@/store/useToastStore';
+import {
+  createItineraryAction,
+  deleteItineraryAction,
+  renameItineraryAction,
+  saveItineraryAction,
+  cloneItineraryAction,
+} from '@/actions/itineraryActions';
 
 export interface PlannerStore {
   // State
@@ -157,39 +164,14 @@ const usePlannerStore = create<PlannerStore>()((set) => ({
   },
 
   createItinerary: async (name, tripDate) => {
-    const supabase = createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user || user.is_anonymous) {
-      console.error('[PlannerStore] No authenticated user');
+    const result = await createItineraryAction(name, tripDate);
+    if (!result.success) {
+      useToastStore.getState().addToast(result.error, 'error');
       return;
     }
-
-    const { data, error } = await supabase
-      .from('itineraries')
-      .insert({
-        user_id: user.id,
-        name,
-        trip_date: tripDate ?? null,
-      })
-      .select()
-      .single();
-
-    if (error) {
-      console.error('[PlannerStore] createItinerary failed:', error.message);
-      return;
-    }
-
-    const itinerary: Itinerary = {
-      id: data.id,
-      userId: data.user_id,
-      name: data.name,
-      tripDate: data.trip_date,
-      createdAt: data.created_at,
-    };
-
     set((state) => ({
-      activeItinerary: itinerary,
-      itineraries: [...state.itineraries, itinerary],
+      activeItinerary: result.data,
+      itineraries: [...state.itineraries, result.data],
       dayItems: { 1: [] },
       hasUnsavedChanges: false,
     }));
@@ -310,60 +292,35 @@ const usePlannerStore = create<PlannerStore>()((set) => ({
   saveItinerary: async () => {
     const { activeItinerary, dayItems } = usePlannerStore.getState();
     if (!activeItinerary) {
-      console.error('[PlannerStore] No active itinerary to save');
       throw new Error('No active itinerary to save');
     }
 
-    const supabase = createClient();
-
-    // Delete existing items for this itinerary, then insert fresh
-    const { error: deleteError } = await supabase
-      .from('itinerary_items')
-      .delete()
-      .eq('itinerary_id', activeItinerary.id);
-
-    if (deleteError) {
-      console.error('[PlannerStore] saveItinerary delete failed:', deleteError.message);
-      throw new Error(deleteError.message);
-    }
-
-    // Collect all items across all days
-    const rows: { itinerary_id: string; pin_id: string; day_number: number; sort_order: number }[] = [];
+    // Serialize dayItems into flat SaveDayItem array
+    const items: SaveDayItem[] = [];
     for (const [dayStr, pins] of Object.entries(dayItems)) {
       const dayNumber = Number(dayStr);
       for (const pin of pins) {
-        rows.push({
-          itinerary_id: activeItinerary.id,
-          pin_id: pin.id,
-          day_number: dayNumber,
-          sort_order: pin.sort_order,
+        items.push({
+          pinId: pin.id,
+          dayNumber,
+          sortOrder: pin.sort_order,
         });
       }
     }
 
-    if (rows.length > 0) {
-      const { error: insertError } = await supabase
-        .from('itinerary_items')
-        .insert(rows);
-
-      if (insertError) {
-        console.error('[PlannerStore] saveItinerary insert failed:', insertError.message);
-        throw new Error(insertError.message);
-      }
+    const result = await saveItineraryAction(activeItinerary.id, items);
+    if (!result.success) {
+      useToastStore.getState().addToast(result.error, 'error');
+      throw new Error(result.error);
     }
 
     set({ hasUnsavedChanges: false });
   },
 
   deleteItinerary: async (itineraryId) => {
-    const supabase = createClient();
-    const { error } = await supabase
-      .from('itineraries')
-      .delete()
-      .eq('id', itineraryId);
-
-    if (error) {
-      console.error('[PlannerStore] deleteItinerary failed:', error.message);
+    const result = await deleteItineraryAction(itineraryId);
+    if (!result.success) {
+      useToastStore.getState().addToast(result.error, 'error');
       return;
     }
 
@@ -376,14 +333,9 @@ const usePlannerStore = create<PlannerStore>()((set) => ({
   },
 
   renameItinerary: async (itineraryId, newName) => {
-    const supabase = createClient();
-    const { error } = await supabase
-      .from('itineraries')
-      .update({ name: newName })
-      .eq('id', itineraryId);
-
-    if (error) {
-      console.error('[PlannerStore] renameItinerary failed:', error.message);
+    const result = await renameItineraryAction(itineraryId, newName);
+    if (!result.success) {
+      useToastStore.getState().addToast(result.error, 'error');
       return;
     }
 
@@ -399,80 +351,16 @@ const usePlannerStore = create<PlannerStore>()((set) => ({
   },
 
   cloneItinerary: async (sourceItineraryId) => {
-    const supabase = createClient();
-
-    // Check authentication
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user || user.is_anonymous) {
-      console.error('[PlannerStore] cloneItinerary: No authenticated user');
+    const result = await cloneItineraryAction(sourceItineraryId);
+    if (!result.success) {
+      useToastStore.getState().addToast(result.error, 'error');
       return null;
-    }
-
-    // Fetch source itinerary (RLS allows SELECT on public itineraries)
-    const { data: sourceItinerary, error: itinError } = await supabase
-      .from('itineraries')
-      .select('*')
-      .eq('id', sourceItineraryId)
-      .single();
-
-    if (itinError || !sourceItinerary) {
-      console.error('[PlannerStore] cloneItinerary: Failed to fetch source itinerary:', itinError?.message);
-      return null;
-    }
-
-    // Fetch source itinerary items with pins
-    const { data: sourceItems, error: itemsError } = await supabase
-      .from('itinerary_items')
-      .select('*, pins(*)')
-      .eq('itinerary_id', sourceItineraryId)
-      .order('day_number', { ascending: true })
-      .order('sort_order', { ascending: true });
-
-    if (itemsError) {
-      console.error('[PlannerStore] cloneItinerary: Failed to fetch source items:', itemsError.message);
-      return null;
-    }
-
-    // Create new itinerary owned by the current user with the same name
-    const { data: newItinerary, error: createError } = await supabase
-      .from('itineraries')
-      .insert({
-        user_id: user.id,
-        name: sourceItinerary.name,
-        trip_date: sourceItinerary.trip_date ?? null,
-      })
-      .select()
-      .single();
-
-    if (createError || !newItinerary) {
-      console.error('[PlannerStore] cloneItinerary: Failed to create new itinerary:', createError?.message);
-      return null;
-    }
-
-    // Batch-insert new itinerary_items preserving day_number and sort_order
-    const items = sourceItems ?? [];
-    if (items.length > 0) {
-      const rows = items.map((item) => ({
-        itinerary_id: newItinerary.id,
-        pin_id: item.pin_id,
-        day_number: item.day_number,
-        sort_order: item.sort_order,
-      }));
-
-      const { error: insertError } = await supabase
-        .from('itinerary_items')
-        .insert(rows);
-
-      if (insertError) {
-        console.error('[PlannerStore] cloneItinerary: Failed to insert items:', insertError.message);
-        return newItinerary.id;
-      }
     }
 
     // Load the cloned itinerary into the store
-    await usePlannerStore.getState().loadItinerary(newItinerary.id);
+    await usePlannerStore.getState().loadItinerary(result.data);
 
-    return newItinerary.id;
+    return result.data;
   },
 }));
 
