@@ -116,10 +116,8 @@ vi.mock('@/store/useTravelPinStore', () => {
 let mockPlannerState: Record<string, any> = {
   dayItems: {},
   isLoadingItinerary: false,
-  isSaving: false,
   hasUnsavedChanges: false,
   activeItinerary: null,
-  itineraries: [],
   addDay: vi.fn(),
 };
 

@@ -17,6 +17,7 @@ export default function ProfileSheet({ open, onOpenChange }: ProfileSheetProps) 
   const collections = useTravelPinStore((s) => s.collections);
   const pins = useTravelPinStore((s) => s.pins);
   const setActiveCollection = useTravelPinStore((s) => s.setActiveCollection);
+  const isRegistered = user && !user.is_anonymous;
 
   const handleSignIn = async () => {
     const supabase = createClient();
@@ -49,7 +50,7 @@ export default function ProfileSheet({ open, onOpenChange }: ProfileSheetProps) 
           <div className="max-h-[85vh] overflow-y-auto px-6 py-1 pb-6 space-y-6">
             {/* Auth section */}
             <div>
-              {user ? (
+              {isRegistered ? (
                 <div className="flex items-center gap-4">
                   {user.user_metadata?.avatar_url ? (
                     /* eslint-disable-next-line @next/next/no-img-element */

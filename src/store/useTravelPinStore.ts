@@ -84,8 +84,8 @@ const useTravelPinStore = create<TravelPinStore>()(
             : {}),
         }));
 
-        // Fire-and-forget server action for auto-created collections
-        if (newCollectionCreated && currentState.user) {
+        // Fire-and-forget server action for auto-created collections (registered users only)
+        if (newCollectionCreated && currentState.user && !currentState.user.is_anonymous) {
           persistCollectionAction(targetCollection.id, targetCollection.name)
             .then((result) => {
               if (!result.success) {
@@ -134,9 +134,9 @@ const useTravelPinStore = create<TravelPinStore>()(
           ),
         }));
 
-        // Fire-and-forget server action for authenticated users
+        // Fire-and-forget server action for registered (non-anonymous) users
         const currentState = useTravelPinStore.getState();
-        if (currentState.user) {
+        if (currentState.user && !currentState.user.is_anonymous) {
           deleteCollectionAction(collectionId)
             .then((result) => {
               if (!result.success) {
@@ -157,8 +157,8 @@ const useTravelPinStore = create<TravelPinStore>()(
           ),
         }));
 
-        // Fire-and-forget server action for authenticated users
-        if (currentState.user) {
+        // Fire-and-forget server action for registered (non-anonymous) users
+        if (currentState.user && !currentState.user.is_anonymous) {
           updatePinAction(id, updates)
             .then((result) => {
               if (!result.success) {
@@ -177,9 +177,9 @@ const useTravelPinStore = create<TravelPinStore>()(
           ),
         }));
 
-        // Fire-and-forget server action for authenticated users
+        // Fire-and-forget server action for registered (non-anonymous) users
         const currentState = useTravelPinStore.getState();
-        if (currentState.user) {
+        if (currentState.user && !currentState.user.is_anonymous) {
           renameCollectionAction(id, newName)
             .then((result) => {
               if (!result.success) {

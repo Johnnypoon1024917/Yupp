@@ -134,7 +134,6 @@ describe('Feature: ux-polish-production-grade, Property 1: Synchronous local mut
       activeItinerary: { id: 'itin-1', userId: 'u1', name: 'Test', tripDate: null, createdAt: '' },
       dayItems: {},
       hasUnsavedChanges: false,
-      isSaving: false,
       isLoadingItinerary: false,
     });
   });
@@ -194,7 +193,6 @@ describe('Feature: ux-polish-production-grade, Property 2: Local mutation persis
       activeItinerary: { id: 'itin-1', userId: 'u1', name: 'Test', tripDate: null, createdAt: '' },
       dayItems: {},
       hasUnsavedChanges: false,
-      isSaving: false,
       isLoadingItinerary: false,
     });
   });
@@ -218,7 +216,6 @@ describe('Feature: ux-polish-production-grade, Property 2: Local mutation persis
           activeItinerary: { id: 'itin-1', userId: 'u1', name: 'Test', tripDate: null, createdAt: '' },
           dayItems: structuredClone(cloned),
           hasUnsavedChanges: false,
-          isSaving: false,
         });
 
         const preMutationPins = structuredClone(usePlannerStore.getState().dayItems[dayNumber]);
@@ -257,7 +254,6 @@ describe('Feature: ux-polish-production-grade, Property 3: Non-blocking mutation
       activeItinerary: { id: 'itin-1', userId: 'u1', name: 'Test', tripDate: null, createdAt: '' },
       dayItems: {},
       hasUnsavedChanges: false,
-      isSaving: false,
       isLoadingItinerary: false,
     });
   });

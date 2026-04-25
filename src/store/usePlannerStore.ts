@@ -8,7 +8,6 @@ export interface PlannerStore {
   dayItems: Record<number, PlannedPin[]>;
   hasUnsavedChanges: boolean;
   isLoadingItinerary: boolean;
-  isSaving: boolean;
 
   // Hydration action
   setItineraryData: (itinerary: Itinerary, dayItems: Record<number, PlannedPin[]>) => void;
@@ -31,7 +30,6 @@ const usePlannerStore = create<PlannerStore>()((set) => ({
   dayItems: {},
   hasUnsavedChanges: false,
   isLoadingItinerary: false,
-  isSaving: false,
 
   setItineraryData: (itinerary, dayItems) => {
     set({ activeItinerary: itinerary, dayItems, hasUnsavedChanges: false });
