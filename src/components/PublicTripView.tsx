@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import maplibregl from "maplibre-gl";
 import { MapPin, Copy, Loader2 } from "lucide-react";
 import type { Itinerary, PlannedPin } from "@/types";
-import usePlannerStore from "@/store/usePlannerStore";
+import { useCloneItinerary } from "@/hooks/useItineraryMutations";
 import { createClient } from "@/utils/supabase/client";
 import AuthModal from "@/components/AuthModal";
 
@@ -57,7 +57,7 @@ export default function PublicTripView({
 
   const router = useRouter();
   const [authModalOpen, setAuthModalOpen] = useState(false);
-  const [cloning, setCloning] = useState(false);
+  const cloneMutation = useCloneItinerary();
 
   const handleCloneClick = useCallback(async () => {
     const supabase = createClient();
@@ -68,16 +68,11 @@ export default function PublicTripView({
       return;
     }
 
-    setCloning(true);
-    try {
-      const newId = await usePlannerStore.getState().cloneItinerary(itinerary.id);
-      if (newId) {
-        router.push("/");
-      }
-    } finally {
-      setCloning(false);
+    const newId = await cloneMutation.mutateAsync(itinerary.id);
+    if (newId) {
+      router.push("/");
     }
-  }, [itinerary.id, router]);
+  }, [itinerary.id, router, cloneMutation]);
 
   // Initialize map and add markers
   useEffect(() => {
@@ -257,15 +252,15 @@ export default function PublicTripView({
         <div className="sticky bottom-0 bg-white/95 backdrop-blur-sm border-t border-gray-100 px-5 py-4 z-20">
           <button
             onClick={handleCloneClick}
-            disabled={cloning}
+            disabled={cloneMutation.isPending}
             className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-[#6366F1] text-white font-bold text-[14px] tracking-tight hover:bg-[#5558E6] active:scale-[0.98] transition-all shadow-lg disabled:opacity-60 disabled:cursor-not-allowed"
           >
-            {cloning ? (
+            {cloneMutation.isPending ? (
               <Loader2 className="w-4 h-4 animate-spin" />
             ) : (
               <Copy className="w-4 h-4" />
             )}
-            {cloning ? "Copying…" : "Copy this Trip to my Yupp"}
+            {cloneMutation.isPending ? "Copying…" : "Copy this Trip to my Yupp"}
           </button>
         </div>
       </div>

@@ -14,7 +14,6 @@ import AuthModal from '@/components/AuthModal';
 import useCloudSync from '@/hooks/useCloudSync';
 import usePlannerDnd from '@/hooks/usePlannerDnd';
 import useTravelPinStore from '@/store/useTravelPinStore';
-import usePlannerStore from '@/store/usePlannerStore';
 import type { MapViewRef } from '@/components/MapView';
 import type { MagicBarRef } from '@/components/MagicBar';
 
@@ -30,10 +29,7 @@ export default function AppLayout() {
   const [isCollectionDrawerOpen, setIsCollectionDrawerOpen] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [authModalMessage, setAuthModalMessage] = useState<string | undefined>(undefined);
-  const itinerariesLoadedRef = useRef(false);
   const autoPasteProcessedRef = useRef(false);
-
-  const fetchItineraries = usePlannerStore((s) => s.fetchItineraries);
   const { sensors, activeDrag, handleDragStart, handleDragEnd, DragPreview } =
     usePlannerDnd({
       onDragStart: () => mapViewRef.current?.disableInteractions(),
@@ -67,10 +63,6 @@ export default function AppLayout() {
           setIsProfileOpen(false);
           setIsDiscoverOpen(false);
           setActiveTab('plan');
-          if (!itinerariesLoadedRef.current) {
-            itinerariesLoadedRef.current = true;
-            fetchItineraries();
-          }
         }
         return;
       }
@@ -95,7 +87,7 @@ export default function AppLayout() {
         magicBarRef.current?.focus();
       }
     },
-    [isPlannerOpen, fetchItineraries],
+    [isPlannerOpen],
   );
 
   const handlePlaceSheetDismiss = useCallback(() => {

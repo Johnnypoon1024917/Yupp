@@ -4,7 +4,12 @@ import { v4 as uuidv4 } from 'uuid';
 import type { Pin, Collection } from '@/types';
 import type { User } from '@supabase/supabase-js';
 import { getCollectionForType } from '@/utils/categories';
-import { createClient } from '@/utils/supabase/client';
+import {
+  updatePinAction,
+  renameCollectionAction,
+  deleteCollectionAction,
+  persistCollectionAction,
+} from '@/actions/pinActions';
 
 export interface TravelPinStore {
   // State
@@ -79,32 +84,14 @@ const useTravelPinStore = create<TravelPinStore>()(
             : {}),
         }));
 
-        // Fire-and-forget Supabase persistence for auto-created collections
+        // Fire-and-forget server action for auto-created collections
         if (newCollectionCreated && currentState.user) {
-          const userId = currentState.user.id;
-          try {
-            const supabase = createClient();
-            supabase
-              .from('collections')
-              .insert({
-                id: targetCollection.id,
-                user_id: userId,
-                name: targetCollection.name,
-              })
-              .then(({ error }) => {
-                if (error) {
-                  console.error(
-                    '[addPin] Failed to persist auto-created collection:',
-                    error
-                  );
-                }
-              });
-          } catch (err) {
-            console.error(
-              '[addPin] Supabase client error:',
-              err
-            );
-          }
+          persistCollectionAction(targetCollection.id, targetCollection.name)
+            .then((result) => {
+              if (!result.success) {
+                console.error('[addPin] Failed to persist auto-created collection:', result.error);
+              }
+            });
         }
 
         return newPin;
@@ -146,6 +133,17 @@ const useTravelPinStore = create<TravelPinStore>()(
               : p
           ),
         }));
+
+        // Fire-and-forget server action for authenticated users
+        const currentState = useTravelPinStore.getState();
+        if (currentState.user) {
+          deleteCollectionAction(collectionId)
+            .then((result) => {
+              if (!result.success) {
+                console.error('[removeCollection] Failed to delete collection:', result.error);
+              }
+            });
+        }
       },
 
       updatePin: (id, updates) => {
@@ -159,22 +157,14 @@ const useTravelPinStore = create<TravelPinStore>()(
           ),
         }));
 
-        // Fire-and-forget Supabase persistence for authenticated users
+        // Fire-and-forget server action for authenticated users
         if (currentState.user) {
-          try {
-            const supabase = createClient();
-            supabase
-              .from('pins')
-              .update(updates)
-              .eq('id', id)
-              .then(({ error }) => {
-                if (error) {
-                  console.error('[updatePin] Failed to persist pin update:', error);
-                }
-              });
-          } catch (err) {
-            console.error('[updatePin] Supabase client error:', err);
-          }
+          updatePinAction(id, updates)
+            .then((result) => {
+              if (!result.success) {
+                console.error('[updatePin] Failed to persist pin update:', result.error);
+              }
+            });
         }
       },
 
@@ -187,23 +177,15 @@ const useTravelPinStore = create<TravelPinStore>()(
           ),
         }));
 
-        // Fire-and-forget Supabase persistence for authenticated users
+        // Fire-and-forget server action for authenticated users
         const currentState = useTravelPinStore.getState();
         if (currentState.user) {
-          try {
-            const supabase = createClient();
-            supabase
-              .from('collections')
-              .update({ name: newName })
-              .eq('id', id)
-              .then(({ error }) => {
-                if (error) {
-                  console.error('[renameCollection] Failed to persist collection rename:', error);
-                }
-              });
-          } catch (err) {
-            console.error('[renameCollection] Supabase client error:', err);
-          }
+          renameCollectionAction(id, newName)
+            .then((result) => {
+              if (!result.success) {
+                console.error('[renameCollection] Failed to persist collection rename:', result.error);
+              }
+            });
         }
       },
 

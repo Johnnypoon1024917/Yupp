@@ -1,27 +1,38 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { Plus, Save, Trash2, Pencil, ArrowLeft, Check, X } from 'lucide-react';
 import usePlannerStore from '@/store/usePlannerStore';
-import type { Itinerary } from '@/types';
+import { useItineraries, useItineraryDetail } from '@/hooks/useItineraryQueries';
+import {
+  useCreateItinerary,
+  useDeleteItinerary,
+  useRenameItinerary,
+  useSaveItinerary,
+} from '@/hooks/useItineraryMutations';
+import type { Itinerary, SaveDayItem } from '@/types';
 
 export default function ItineraryToolbar() {
   const activeItinerary = usePlannerStore((s) => s.activeItinerary);
-  const itineraries = usePlannerStore((s) => s.itineraries);
   const hasUnsavedChanges = usePlannerStore((s) => s.hasUnsavedChanges);
-  const createItinerary = usePlannerStore((s) => s.createItinerary);
-  const loadItinerary = usePlannerStore((s) => s.loadItinerary);
-  const saveItinerary = usePlannerStore((s) => s.saveItinerary);
-  const deleteItinerary = usePlannerStore((s) => s.deleteItinerary);
-  const renameItinerary = usePlannerStore((s) => s.renameItinerary);
+  const setItineraryData = usePlannerStore((s) => s.setItineraryData);
+
+  const { data: itineraries = [], isLoading, isError } = useItineraries();
+
+  const createMutation = useCreateItinerary();
+  const deleteMutation = useDeleteItinerary();
+  const renameMutation = useRenameItinerary();
+  const saveMutation = useSaveItinerary();
 
   const [isCreating, setIsCreating] = useState(false);
   const [newName, setNewName] = useState('');
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState('');
-  const [isSaving, setIsSaving] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [loadingItineraryId, setLoadingItineraryId] = useState<string | null>(null);
+
+  const { data: detailData } = useItineraryDetail(loadingItineraryId);
 
   const newNameInputRef = useRef<HTMLInputElement>(null);
   const renameInputRef = useRef<HTMLInputElement>(null);
@@ -34,10 +45,18 @@ export default function ItineraryToolbar() {
     if (renamingId) renameInputRef.current?.focus();
   }, [renamingId]);
 
+  // When detail data arrives, hydrate Zustand and clear the loading id
+  useEffect(() => {
+    if (detailData && loadingItineraryId) {
+      setItineraryData(detailData.itinerary, detailData.dayItems);
+      setLoadingItineraryId(null);
+    }
+  }, [detailData, loadingItineraryId, setItineraryData]);
+
   const handleCreate = async () => {
     const name = newName.trim();
     if (!name) return;
-    await createItinerary(name);
+    await createMutation.mutateAsync({ name });
     setNewName('');
     setIsCreating(false);
   };
@@ -45,7 +64,7 @@ export default function ItineraryToolbar() {
   const handleRename = async (id: string) => {
     const name = renameValue.trim();
     if (!name) return;
-    await renameItinerary(id, name);
+    await renameMutation.mutateAsync({ itineraryId: id, newName: name });
     setRenamingId(null);
     setRenameValue('');
   };
@@ -57,7 +76,15 @@ export default function ItineraryToolbar() {
 
   const handleDeleteConfirm = async () => {
     if (deletingId) {
-      await deleteItinerary(deletingId);
+      await deleteMutation.mutateAsync(deletingId);
+      // If we deleted the active itinerary, clear local state
+      if (activeItinerary?.id === deletingId) {
+        usePlannerStore.setState({
+          activeItinerary: null,
+          dayItems: {},
+          hasUnsavedChanges: false,
+        });
+      }
     }
     setShowDeleteConfirm(false);
     setDeletingId(null);
@@ -69,10 +96,22 @@ export default function ItineraryToolbar() {
   };
 
   const handleSave = async () => {
-    setIsSaving(true);
-    await saveItinerary();
-    setIsSaving(false);
+    if (!activeItinerary) return;
+    const dayItems = usePlannerStore.getState().dayItems;
+    const items: SaveDayItem[] = [];
+    for (const [dayStr, pins] of Object.entries(dayItems)) {
+      const dayNumber = Number(dayStr);
+      for (const pin of pins) {
+        items.push({ pinId: pin.id, dayNumber, sortOrder: pin.sort_order });
+      }
+    }
+    await saveMutation.mutateAsync({ itineraryId: activeItinerary.id, items });
+    usePlannerStore.setState({ hasUnsavedChanges: false });
   };
+
+  const handleLoad = useCallback((id: string) => {
+    setLoadingItineraryId(id);
+  }, []);
 
   const handleBack = () => {
     usePlannerStore.setState({
@@ -118,6 +157,8 @@ export default function ItineraryToolbar() {
       </div>
     </div>
   );
+
+  const isSaving = saveMutation.isPending;
 
   // --- Active itinerary header ---
   if (activeItinerary) {
@@ -184,6 +225,24 @@ export default function ItineraryToolbar() {
     );
   }
 
+  // --- Loading state ---
+  if (isLoading) {
+    return (
+      <div className="px-3 py-4 bg-surface border-b border-border flex items-center justify-center">
+        <span className="text-xs text-neutral-400">Loading trips…</span>
+      </div>
+    );
+  }
+
+  // --- Error state ---
+  if (isError) {
+    return (
+      <div className="px-3 py-4 bg-surface border-b border-border flex items-center justify-center">
+        <span className="text-xs text-red-500">Failed to load trips. Please try again.</span>
+      </div>
+    );
+  }
+
   // --- Itinerary list view ---
   return (
     <>
@@ -232,7 +291,7 @@ export default function ItineraryToolbar() {
               itinerary={it}
               isRenaming={renamingId === it.id}
               renameValue={renameValue}
-              onLoad={() => loadItinerary(it.id)}
+              onLoad={() => handleLoad(it.id)}
               onStartRename={() => { setRenamingId(it.id); setRenameValue(it.name); }}
               onRenameChange={setRenameValue}
               onRenameSubmit={() => handleRename(it.id)}
