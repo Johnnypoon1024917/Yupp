@@ -541,7 +541,7 @@ export async function scrapeUrl(url: string): Promise<ScrapeResult | ScrapeError
     const caption = description ?? '';
     const extractedPlaces = await extractPlacesWithAI(caption, title);
 
-    console.log('[scrapeUrl] Extracted:', { title, description: description?.slice(0, 2000), imageUrl: imageUrl?.slice(0, 80), platform, extractedPlaces });
+    if (process.env.NODE_ENV !== 'production') console.log('[scrapeUrl] Extracted:', { title, description: description?.slice(0, 2000), imageUrl: imageUrl?.slice(0, 80), platform, extractedPlaces });
 
     return {
       success: true,

@@ -139,6 +139,7 @@ const usePlannerStore = create<PlannerStore>()((set) => ({
           ...state.dayItems,
           [dayNumber]: recalcSortOrder(dayPins),
         },
+        hasUnsavedChanges: true,
       };
     });
   },
@@ -449,12 +450,65 @@ const usePlannerStore = create<PlannerStore>()((set) => ({
       return null;
     }
 
-    // Batch-insert new itinerary_items preserving day_number and sort_order
+    // Clone pins if the source itinerary belongs to a different user
     const items = sourceItems ?? [];
+    let pinIdMap: Map<string, string> | null = null;
+
+    if (sourceItinerary.user_id !== user.id && items.length > 0) {
+      // Extract unique pin IDs from source items
+      const uniquePinIds = [...new Set(items.map((item) => item.pin_id as string))];
+
+      // Fetch the source pins
+      const { data: sourcePins, error: pinsError } = await supabase
+        .from('pins')
+        .select('*')
+        .in('id', uniquePinIds);
+
+      if (pinsError || !sourcePins) {
+        console.error('[PlannerStore] cloneItinerary: Failed to fetch source pins:', pinsError?.message);
+        return newItinerary.id;
+      }
+
+      // Insert cloned copies with new UUIDs and current user's ID
+      pinIdMap = new Map<string, string>();
+      const clonedPins = sourcePins.map((pin) => {
+        const newPinId = uuidv4();
+        pinIdMap!.set(pin.id, newPinId);
+        return {
+          id: newPinId,
+          user_id: user.id,
+          title: pin.title,
+          description: pin.description ?? null,
+          image_url: pin.image_url,
+          source_url: pin.source_url,
+          latitude: pin.latitude,
+          longitude: pin.longitude,
+          collection_id: pin.collection_id,
+          place_id: pin.place_id ?? null,
+          primary_type: pin.primary_type ?? null,
+          rating: pin.rating ?? null,
+          address: pin.address ?? null,
+        };
+      });
+
+      if (clonedPins.length > 0) {
+        const { error: clonePinsError } = await supabase
+          .from('pins')
+          .insert(clonedPins)
+          .select();
+
+        if (clonePinsError) {
+          console.error('[PlannerStore] cloneItinerary: Failed to clone pins:', clonePinsError.message);
+          return newItinerary.id;
+        }
+      }
+    }
+
+    // Batch-insert new itinerary_items preserving day_number and sort_order
     if (items.length > 0) {
       const rows = items.map((item) => ({
         itinerary_id: newItinerary.id,
-        pin_id: item.pin_id,
+        pin_id: pinIdMap ? (pinIdMap.get(item.pin_id as string) ?? item.pin_id) : item.pin_id,
         day_number: item.day_number,
         sort_order: item.sort_order,
       }));

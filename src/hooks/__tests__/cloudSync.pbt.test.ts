@@ -138,11 +138,14 @@ describe('Feature: supabase-cloud-bridge, Property 3: Collection ID mapping is b
               createdAt: new Date().toISOString(),
             }));
 
-            // Generate the same number of unique cloud IDs
+            // Generate the same number of unique cloud IDs with matching names
             return fc
               .array(fc.uuid(), { minLength: uniqueLocalIds.length, maxLength: uniqueLocalIds.length })
               .map((cloudIds) => {
-                const cloudCollections = cloudIds.map((id) => ({ id }));
+                const cloudCollections = cloudIds.map((id, i) => ({
+                  id,
+                  name: localCollections[i].name,
+                }));
                 return { localCollections, cloudCollections };
               });
           }),

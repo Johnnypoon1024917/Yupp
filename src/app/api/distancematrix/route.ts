@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
+import { checkRateLimit } from '@/actions/rateLimit';
 
 const GOOGLE_DISTANCE_MATRIX_URL =
   'https://maps.googleapis.com/maps/api/distancematrix/json';
@@ -31,6 +32,14 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       { error: 'Unauthorized' },
       { status: 401 }
+    );
+  }
+
+  // Per-user rate limiting to prevent API budget exhaustion
+  if (!checkRateLimit(user.id)) {
+    return NextResponse.json(
+      { error: 'Rate limit exceeded. Please try again later.' },
+      { status: 429 }
     );
   }
 
@@ -69,53 +78,55 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // Build consecutive origin→destination pairs and call Google Distance Matrix API
-  const segments: DistanceSegment[] = [];
+  // Build batched origins/destinations arrays for a single matrix request.
+  // origins = coords[0..N-2], destinations = coords[1..N-1]
+  // The diagonal of the response matrix (rows[i].elements[i]) gives consecutive-pair segments.
+  const origins = coordinates.slice(0, -1);
+  const destinations = coordinates.slice(1);
+
+  const params = new URLSearchParams({
+    origins: origins.map((c) => `${c.lat},${c.lng}`).join('|'),
+    destinations: destinations.map((c) => `${c.lat},${c.lng}`).join('|'),
+    mode,
+    key: apiKey,
+  });
 
   try {
-    for (let i = 0; i < coordinates.length - 1; i++) {
-      const origin = coordinates[i];
-      const destination = coordinates[i + 1];
+    const response = await fetch(
+      `${GOOGLE_DISTANCE_MATRIX_URL}?${params.toString()}`
+    );
 
-      const params = new URLSearchParams({
-        origins: `${origin.lat},${origin.lng}`,
-        destinations: `${destination.lat},${destination.lng}`,
-        mode,
-        key: apiKey,
-      });
-
-      const response = await fetch(
-        `${GOOGLE_DISTANCE_MATRIX_URL}?${params.toString()}`
+    if (!response.ok) {
+      return NextResponse.json(
+        {
+          error: 'Google Distance Matrix API request failed',
+          details: `HTTP ${response.status}`,
+        },
+        { status: 502 }
       );
+    }
 
-      if (!response.ok) {
-        return NextResponse.json(
-          {
-            error: 'Google Distance Matrix API request failed',
-            details: `HTTP ${response.status}`,
-          },
-          { status: 502 }
-        );
-      }
+    const data = await response.json();
 
-      const data = await response.json();
+    if (data.status !== 'OK') {
+      return NextResponse.json(
+        {
+          error: 'Google Distance Matrix API error',
+          details: data.status,
+        },
+        { status: 502 }
+      );
+    }
 
-      if (data.status !== 'OK') {
-        return NextResponse.json(
-          {
-            error: 'Google Distance Matrix API error',
-            details: data.status,
-          },
-          { status: 502 }
-        );
-      }
+    const segments: DistanceSegment[] = [];
 
-      const element = data.rows?.[0]?.elements?.[0];
+    for (let i = 0; i < origins.length; i++) {
+      const element = data.rows?.[i]?.elements?.[i];
       if (!element) {
         return NextResponse.json(
           {
             error: 'Google Distance Matrix API returned no results',
-            details: 'Empty response elements',
+            details: `Missing element at row ${i}, col ${i}`,
           },
           { status: 502 }
         );

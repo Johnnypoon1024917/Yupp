@@ -62,12 +62,13 @@ export function getLocalData(
 
 export function buildCollectionIdMap(
   localCollections: Collection[],
-  cloudCollections: { id: string }[],
+  cloudCollections: { id: string; name?: string }[],
 ): Map<string, string> {
   const map = new Map<string, string>();
-  for (let i = 0; i < localCollections.length; i++) {
-    if (i < cloudCollections.length) {
-      map.set(localCollections[i].id, cloudCollections[i].id);
+  for (const local of localCollections) {
+    const match = cloudCollections.find((c) => c.name === local.name);
+    if (match) {
+      map.set(local.id, match.id);
     }
   }
   return map;
@@ -203,7 +204,7 @@ async function pushLocalDataAndHydrate(
     const { data: cloudCols, error: colErr } = await supabase
       .from('collections')
       .insert(rows)
-      .select('id');
+      .select('id, name');
 
     if (colErr) throw colErr;
     collectionIdMap = buildCollectionIdMap(collectionsToInsert, cloudCols ?? []);
@@ -325,9 +326,21 @@ export default function useCloudSync() {
             supabase, state.user.id,
           );
 
+          // Build collection ID map so each pin uses its actual collectionId
+          const { collections: localCollections } = useTravelPinStore.getState();
+          const { data: cloudCols } = await supabase
+            .from('collections')
+            .select('id, name')
+            .eq('user_id', state.user.id);
+          const collectionIdMap = buildCollectionIdMap(
+            localCollections,
+            cloudCols ?? [],
+          );
+          collectionIdMap.set('unorganized', unorganizedCloudId);
+
           const pinRows = newPins.map((p) => ({
             user_id: state.user!.id,
-            collection_id: unorganizedCloudId,
+            collection_id: collectionIdMap.get(p.collectionId) ?? unorganizedCloudId,
             title: p.title,
             description: p.description ?? null,
             image_url: p.imageUrl,

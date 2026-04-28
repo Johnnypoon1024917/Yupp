@@ -114,6 +114,25 @@ const useTravelPinStore = create<TravelPinStore>()(
         set((state) => ({
           pins: state.pins.filter((p) => p.id !== pinId),
         }));
+
+        // Fire-and-forget Supabase delete for authenticated users
+        const currentState = useTravelPinStore.getState();
+        if (currentState.user) {
+          try {
+            const supabase = createClient();
+            supabase
+              .from('pins')
+              .delete()
+              .eq('id', pinId)
+              .then(({ error }) => {
+                if (error) {
+                  console.error('[removePin] Failed to delete pin from cloud:', error);
+                }
+              });
+          } catch (err) {
+            console.error('[removePin] Supabase client error:', err);
+          }
+        }
       },
 
       movePin: (pinId, collectionId) => {

@@ -84,7 +84,9 @@ export function createVisualMarkerElement(options: VisualMarkerOptions): HTMLDiv
 
   // Fallback on image error
   img.onerror = () => {
-    inner.removeChild(img);
+    if (img.parentNode === inner) {
+      inner.removeChild(img);
+    }
     showFallback(inner);
   };
 

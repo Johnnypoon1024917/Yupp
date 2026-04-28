@@ -130,7 +130,7 @@ describe('useCloudSync pure helpers', () => {
       { id: 'local-1', name: 'A', createdAt: '' },
       { id: 'local-2', name: 'B', createdAt: '' },
     ];
-    const cloudCollections = [{ id: 'cloud-1' }, { id: 'cloud-2' }];
+    const cloudCollections = [{ id: 'cloud-1', name: 'A' }, { id: 'cloud-2', name: 'B' }];
 
     const map = buildCollectionIdMap(localCollections, cloudCollections);
     expect(map.size).toBe(2);

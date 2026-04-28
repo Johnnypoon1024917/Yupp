@@ -33,7 +33,8 @@ const MapView = forwardRef<MapViewRef, MapViewProps>(function MapView({ classNam
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const markersRef = useRef<Map<string, maplibregl.Marker>>(new Map());
-  const prevPinCountRef = useRef<number>(0);
+  /** Previous set of pin IDs used to diff and detect genuinely new pins */
+  const prevPinIdsRef = useRef<Set<string>>(new Set());
   /** Pin IDs whose markers are deferred until after flyTo completes */
   const pendingMarkerPinIdsRef = useRef<Set<string>>(new Set());
 
@@ -357,17 +358,23 @@ const MapView = forwardRef<MapViewRef, MapViewProps>(function MapView({ classNam
 
   // Detect new pin additions and trigger cinematic flyTo
   useEffect(() => {
-    const prevCount = prevPinCountRef.current;
-    const currentCount = pins.length;
+    const prevIds = prevPinIdsRef.current;
+    const currentIds = new Set(pins.map((p) => p.id));
 
-    if (currentCount > prevCount) {
-      // A new pin was added — defer its marker and fly to its coordinates
-      const lastPin = pins[currentCount - 1];
-      pendingMarkerPinIdsRef.current.add(lastPin.id);
-      flyToPin(lastPin.latitude, lastPin.longitude);
+    // Compute genuinely new pin IDs (present now but not before)
+    const newIds = [...currentIds].filter((id) => !prevIds.has(id));
+
+    // Only fly when exactly one new pin was added (user action).
+    // Skip fly on bulk hydration (multiple new pins at once, e.g. cloud sync).
+    if (newIds.length === 1) {
+      const newPin = pins.find((p) => p.id === newIds[0]);
+      if (newPin) {
+        pendingMarkerPinIdsRef.current.add(newPin.id);
+        flyToPin(newPin.latitude, newPin.longitude);
+      }
     }
 
-    prevPinCountRef.current = currentCount;
+    prevPinIdsRef.current = currentIds;
   }, [pins, flyToPin]);
 
   return (

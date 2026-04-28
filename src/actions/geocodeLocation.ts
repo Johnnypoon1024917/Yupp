@@ -44,7 +44,7 @@ export async function pickProminentPlace(
     for (const place of places) {
       const addressLower = (place.formattedAddress ?? '').toLowerCase();
       if (hintsLower.some((hint) => addressLower.includes(hint))) {
-        console.log('[pickProminentPlace] Contextual hint match:', place.displayName.text);
+        if (process.env.NODE_ENV !== 'production') console.log('[pickProminentPlace] Contextual hint match:', place.displayName.text);
         return place;
       }
     }
@@ -59,7 +59,7 @@ export async function pickProminentPlace(
     first.userRatingCount != null &&
     first.userRatingCount > 50
   ) {
-    console.log('[pickProminentPlace] High-rating first result:', first.displayName.text, first.rating, first.userRatingCount);
+    if (process.env.NODE_ENV !== 'production') console.log('[pickProminentPlace] High-rating first result:', first.displayName.text, first.rating, first.userRatingCount);
     return first;
   }
 
@@ -76,7 +76,7 @@ export async function pickProminentPlace(
   }
 
   // Step 4: Default to first result
-  console.log('[pickProminentPlace] Defaulting to first result:', first.displayName.text);
+  if (process.env.NODE_ENV !== 'production') console.log('[pickProminentPlace] Defaulting to first result:', first.displayName.text);
   return first;
 }
 
@@ -97,7 +97,7 @@ export async function geocodeLocation(input: {
     return { status: 'error', error: 'Too many requests. Please slow down!' };
   }
 
-  console.log('[geocodeLocation] Called with:', { location, contextualHints, partialData: !!partialData });
+  if (process.env.NODE_ENV !== 'production') console.log('[geocodeLocation] Called with:', { location, contextualHints, partialData: !!partialData });
 
   if (!location || location.trim().length === 0) {
     return { status: 'error', error: 'Location string is empty' };
@@ -137,7 +137,7 @@ export async function geocodeLocation(input: {
     const data: GooglePlacesResponse = await response.json();
     const places = data.places ?? [];
 
-    console.log('[geocodeLocation] Google Places returned', places.length, 'results for query:', textQuery);
+    if (process.env.NODE_ENV !== 'production') console.log('[geocodeLocation] Google Places returned', places.length, 'results for query:', textQuery);
 
     if (places.length === 0) {
       return {
@@ -167,7 +167,7 @@ export async function geocodeLocation(input: {
     }
 
     // Truly ambiguous — ask the human.
-    console.log('[geocodeLocation] Results are ambiguous, requesting user input');
+    if (process.env.NODE_ENV !== 'production') console.log('[geocodeLocation] Results are ambiguous, requesting user input');
     return {
       status: 'needs_user_input',
       partialData: partialData ?? { title: '', imageUrl: null },
