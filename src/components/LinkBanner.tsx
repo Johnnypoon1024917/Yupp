@@ -55,7 +55,7 @@ export default function LinkBanner({ platformName, onAccept, onDismiss }: LinkBa
           aria-label="Dismiss"
           className="shrink-0 rounded-full p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
         >
-          <X size={14} />
+          <X size={14} aria-hidden="true" />
         </button>
       </motion.div>
     </AnimatePresence>

@@ -3,30 +3,42 @@
 import { Plus } from 'lucide-react';
 import usePlannerStore from '@/store/usePlannerStore';
 import DayContainer from './DayContainer';
+import EmptyState from '@/components/empty-states/EmptyState';
+import CalendarIllustration from '@/components/empty-states/illustrations/CalendarIllustration';
 
 interface TripTimelineProps {
   className?: string;
+  onOpenLibrary?: () => void;
 }
 
-export default function TripTimeline({ className }: TripTimelineProps) {
+export default function TripTimeline({ className, onOpenLibrary }: TripTimelineProps) {
   const dayItems = usePlannerStore((s) => s.dayItems);
   const addDay = usePlannerStore((s) => s.addDay);
   const isLoadingItinerary = usePlannerStore((s) => s.isLoadingItinerary);
+  const tripDate = usePlannerStore((s) => s.activeItinerary?.tripDate ?? null);
 
   const dayNumbers = Object.keys(dayItems)
     .map(Number)
     .sort((a, b) => a - b);
 
+  const totalPlannedPins = dayNumbers.reduce(
+    (sum, day) => sum + (dayItems[day]?.length ?? 0),
+    0,
+  );
+
   return (
     <div className={className ?? ''}>
-      {dayNumbers.length === 0 ? (
-        <p className="text-[13px] text-neutral-400 text-center py-12">
-          No days yet — add one to start planning
-        </p>
+      {totalPlannedPins === 0 ? (
+        <EmptyState
+          illustration={<CalendarIllustration />}
+          message="Drag pins here to plan your day"
+          ctaLabel="Browse saved places"
+          onCtaClick={onOpenLibrary}
+        />
       ) : (
         <div className="space-y-6">
           {dayNumbers.map((day) => (
-            <DayContainer key={day} dayNumber={day} pins={dayItems[day] ?? []} isLoading={isLoadingItinerary} />
+            <DayContainer key={day} dayNumber={day} pins={dayItems[day] ?? []} isLoading={isLoadingItinerary} tripDate={tripDate} />
           ))}
         </div>
       )}

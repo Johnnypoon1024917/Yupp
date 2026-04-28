@@ -1,13 +1,16 @@
 'use client';
 
-import { useState, useRef, useCallback, forwardRef, useImperativeHandle } from 'react';
+import { useState, useRef, useCallback, useEffect, forwardRef, useImperativeHandle } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Sparkles, Clipboard } from 'lucide-react';
 import { scrapeUrl } from '@/actions/scrapeUrl';
 import { geocodeLocation } from '@/actions/geocodeLocation';
-import { detectPlatform } from '@/actions/extractPlaces';
+import { detectPlatform } from '@/utils/extractPlacesUtils';
 import useTravelPinStore from '@/store/useTravelPinStore';
 import useToastStore from '@/store/useToastStore';
+import { DEMO_URLS } from './MagicBar.demoUrls';
+import { DURATION_BASE, EASE_SPRING } from '@/utils/motion';
+import { haptics } from '@/utils/haptics';
 import type { Pin } from '@/types';
 
 export type MagicBarState = 'idle' | 'processing' | 'error' | 'success';
@@ -41,6 +44,15 @@ export function isValidUrl(input: string): boolean {
   }
 }
 
+const PLATFORM_NAMES = Object.keys(DEMO_URLS);
+
+const PLACEHOLDER_PHRASES = [
+  'Paste an Instagram reel...',
+  'Paste a Xiaohongshu post...',
+  'Paste a Douyin video...',
+  'Paste a TikTok link...',
+];
+
 const MagicBar = forwardRef<MagicBarRef, MagicBarProps>(function MagicBar({ onPinCreated }, ref) {
   const [state, setState] = useState<MagicBarState>('idle');
   const [inputValue, setInputValue] = useState('');
@@ -48,8 +60,17 @@ const MagicBar = forwardRef<MagicBarRef, MagicBarProps>(function MagicBar({ onPi
   const [isFocused, setIsFocused] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const isSharedRef = useRef(false);
+  const [placeholderIndex, setPlaceholderIndex] = useState(0);
   const addPin = useTravelPinStore((s) => s.addPin);
   const addToast = useToastStore((s) => s.addToast);
+
+  // Cycle placeholder text through platform-specific phrases at 3s intervals
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setPlaceholderIndex((prev) => (prev + 1) % PLACEHOLDER_PHRASES.length);
+    }, 3000);
+    return () => clearInterval(interval);
+  }, []);
 
   const resetToIdle = useCallback(() => {
     setState('idle');
@@ -66,6 +87,7 @@ const MagicBar = forwardRef<MagicBarRef, MagicBarProps>(function MagicBar({ onPi
       // Validate URL
       if (!isValidUrl(trimmed)) {
         addToast("Please enter a valid URL (e.g. https://example.com)", "error");
+        haptics.error();
         setTimeout(() => { resetToIdle(); }, 300);
         return;
       }
@@ -89,6 +111,7 @@ const MagicBar = forwardRef<MagicBarRef, MagicBarProps>(function MagicBar({ onPi
         const scrapeResult = await scrapeUrl(trimmed);
         if (!scrapeResult.success) {
           addToast("We couldn't read that link. Try pasting a different one.", "error");
+          haptics.error();
           setTimeout(() => { resetToIdle(); }, 300);
           return;
         }
@@ -96,6 +119,7 @@ const MagicBar = forwardRef<MagicBarRef, MagicBarProps>(function MagicBar({ onPi
         // Step 2: Check for extracted places
         if (scrapeResult.extractedPlaces.length === 0) {
           addToast("No places found in this post.", "error");
+          haptics.error();
           setTimeout(() => { resetToIdle(); }, 300);
           return;
         }
@@ -148,6 +172,7 @@ const MagicBar = forwardRef<MagicBarRef, MagicBarProps>(function MagicBar({ onPi
           setStatusText(`Pinned ${pinnedCount} spots from ${platformDisplay}!`);
           setState('success');
           setInputValue('');
+          haptics.success();
           if (usedPlaceholder) {
             addToast("Image couldn't be loaded from this link — we used a placeholder instead.", "error");
           }
@@ -156,10 +181,12 @@ const MagicBar = forwardRef<MagicBarRef, MagicBarProps>(function MagicBar({ onPi
           }, 2000);
         } else {
           addToast("Our AI is currently taking a coffee break. We saved the link to your unorganized collection instead!", "error");
+          haptics.error();
           setTimeout(() => { resetToIdle(); }, 300);
         }
       } catch {
         addToast("Something went wrong. Please try again in a moment.", "error");
+        haptics.error();
         setTimeout(() => { resetToIdle(); }, 300);
       }
     },
@@ -225,7 +252,7 @@ const MagicBar = forwardRef<MagicBarRef, MagicBarProps>(function MagicBar({ onPi
         onSubmit={handleSubmit}
         layout
         animate={{ width: isFocused ? '100%' : 'min(400px, 100%)' }}
-        transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+        transition={EASE_SPRING}
         className="relative flex items-center w-full rounded-full border border-border bg-surface/80 backdrop-blur-md shadow-xl px-4 py-2"
       >
         {/* Sparkle icon — visible during processing or success */}
@@ -235,9 +262,9 @@ const MagicBar = forwardRef<MagicBarRef, MagicBarProps>(function MagicBar({ onPi
               initial={{ opacity: 0, scale: 0.6 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.6 }}
-              transition={{ duration: 0.25 }}
+              transition={{ duration: DURATION_BASE }}
               className="mr-2 flex-shrink-0"
-              aria-hidden
+              aria-hidden="true"
             >
               <motion.span
                 animate={{ rotate: [0, 15, -15, 0], scale: [1, 1.2, 1] }}
@@ -273,7 +300,7 @@ const MagicBar = forwardRef<MagicBarRef, MagicBarProps>(function MagicBar({ onPi
               onFocus={() => setIsFocused(true)}
               onBlur={() => setIsFocused(false)}
               disabled={isProcessing}
-              placeholder="Paste a URL to pin a place..."
+              placeholder={PLACEHOLDER_PHRASES[placeholderIndex]}
               aria-label="Paste a URL to create a travel pin"
               className="flex-1 bg-transparent outline-none text-sm sm:text-base text-primary placeholder:text-gray-400"
             />
@@ -296,7 +323,7 @@ const MagicBar = forwardRef<MagicBarRef, MagicBarProps>(function MagicBar({ onPi
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               className="absolute inset-0 rounded-full overflow-hidden pointer-events-none"
-              aria-hidden
+              aria-hidden="true"
             >
               <motion.div
                 className="absolute inset-0"
@@ -311,6 +338,34 @@ const MagicBar = forwardRef<MagicBarRef, MagicBarProps>(function MagicBar({ onPi
           )}
         </AnimatePresence>
       </motion.form>
+
+      {/* Platform Chips — shown when idle and input is empty */}
+      <AnimatePresence>
+        {state === 'idle' && !inputValue.trim() && (
+          <motion.div
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: DURATION_BASE }}
+            className="flex gap-2 mt-2 flex-wrap justify-center"
+          >
+            {PLATFORM_NAMES.map((platform) => (
+              <button
+                key={platform}
+                type="button"
+                onClick={() => {
+                  haptics.tap();
+                  processUrl(DEMO_URLS[platform], true);
+                }}
+                className="px-3 py-1.5 rounded-chip bg-surface/80 backdrop-blur-md border border-border text-caption text-ink-2 hover:bg-brand-soft hover:text-brand-ink transition-colors shadow-elev-1"
+                aria-label={`Try ${platform} demo`}
+              >
+                {platform}
+              </button>
+            ))}
+          </motion.div>
+        )}
+      </AnimatePresence>
 
     </div>
   );

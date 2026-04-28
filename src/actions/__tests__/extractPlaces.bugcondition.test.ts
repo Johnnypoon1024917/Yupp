@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import fc from 'fast-check';
-import { extractPlaceNameFromCaption } from '../extractPlaces';
+import { extractPlaceNameFromCaption } from '@/utils/extractPlacesUtils';
 
 /**
  * Bug Condition Exploration Test — Property 1

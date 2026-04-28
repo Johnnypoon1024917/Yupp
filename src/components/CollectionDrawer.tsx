@@ -90,7 +90,7 @@ function DrawerContent() {
           className="flex h-8 w-8 items-center justify-center rounded-full text-gray-500 hover:bg-gray-100 hover:text-primary transition-colors"
           aria-label="New collection"
         >
-          <Plus size={18} />
+          <Plus size={18} aria-hidden="true" />
         </button>
       </div>
 
@@ -114,7 +114,7 @@ function DrawerContent() {
             className="p-1.5 text-green-600 hover:text-green-700 rounded transition-colors"
             aria-label="Save new collection"
           >
-            <Check size={16} />
+            <Check size={16} aria-hidden="true" />
           </button>
           <button
             type="button"
@@ -122,7 +122,7 @@ function DrawerContent() {
             className="p-1.5 text-gray-400 hover:text-gray-600 rounded transition-colors"
             aria-label="Cancel new collection"
           >
-            <X size={16} />
+            <X size={16} aria-hidden="true" />
           </button>
         </div>
       )}
@@ -175,7 +175,7 @@ export default function CollectionDrawer({
         aria-label={isOpen ? 'Close collections drawer' : 'Open collections drawer'}
         className="fixed top-4 left-4 z-[45] flex h-10 w-10 items-center justify-center rounded-full border border-border bg-surface/80 backdrop-blur-md shadow-sm transition-colors hover:bg-gray-50"
       >
-        {isOpen ? <X size={18} /> : <Menu size={18} />}
+        {isOpen ? <X size={18} aria-hidden="true" /> : <Menu size={18} aria-hidden="true" />}
       </button>
 
       {/* Desktop: Framer Motion slide-in panel */}

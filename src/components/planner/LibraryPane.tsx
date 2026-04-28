@@ -5,6 +5,8 @@ import { useDraggable } from '@dnd-kit/core';
 import { Search, GripVertical, MapPin } from 'lucide-react';
 import useTravelPinStore from '@/store/useTravelPinStore';
 import { extractCountry } from '@/utils/address';
+import EmptyState from '@/components/empty-states/EmptyState';
+import PinIllustration from '@/components/empty-states/illustrations/PinIllustration';
 import type { Pin } from '@/types';
 
 interface LibraryPaneProps {
@@ -110,9 +112,16 @@ export default function LibraryPane({ className }: LibraryPaneProps) {
 
       {/* Scrollable pin grid */}
       <div className="flex-1 overflow-y-auto p-4 space-y-5">
-        {cityNames.length === 0 && (
+        {cityNames.length === 0 && pins.length === 0 && (
+          <EmptyState
+            illustration={<PinIllustration />}
+            message="Save some places first"
+          />
+        )}
+
+        {cityNames.length === 0 && pins.length > 0 && (
           <p className="text-[13px] text-neutral-400 text-center py-8">
-            {pins.length === 0 ? 'No saved pins yet' : 'No pins match your search'}
+            No pins match your search
           </p>
         )}
 

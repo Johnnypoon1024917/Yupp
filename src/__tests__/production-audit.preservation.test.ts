@@ -747,12 +747,7 @@ describe('Preservation 3.9 — extractPlaces Server Functions: identical results
    * For `parseLLMResponse` called with valid JSON, observe identical results.
    */
   it('property: parseLLMResponse returns consistent results for valid JSON arrays', async () => {
-    vi.resetModules();
-    vi.doMock('@google/generative-ai', () => ({
-      GoogleGenerativeAI: vi.fn(),
-    }));
-
-    const { parseLLMResponse } = await import('@/actions/extractPlaces');
+    const { parseLLMResponse } = await import('@/utils/extractPlacesUtils');
 
     fc.assert(
       fc.property(
@@ -768,10 +763,8 @@ describe('Preservation 3.9 — extractPlaces Server Functions: identical results
           const result1 = parseLLMResponse(raw);
           const result2 = parseLLMResponse(raw);
 
-          // Results should be identical across calls
           expect(result1).toEqual(result2);
 
-          // Each result should have the correct structure
           for (const place of result1) {
             expect(typeof place.name).toBe('string');
             expect(Array.isArray(place.contextualHints)).toBe(true);
@@ -782,18 +775,8 @@ describe('Preservation 3.9 — extractPlaces Server Functions: identical results
     );
   });
 
-  /**
-   * **Validates: Requirements 3.9**
-   *
-   * For `parseLLMResponse` with markdown code fences, observe correct stripping.
-   */
   it('property: parseLLMResponse strips markdown fences consistently', async () => {
-    vi.resetModules();
-    vi.doMock('@google/generative-ai', () => ({
-      GoogleGenerativeAI: vi.fn(),
-    }));
-
-    const { parseLLMResponse } = await import('@/actions/extractPlaces');
+    const { parseLLMResponse } = await import('@/utils/extractPlacesUtils');
 
     fc.assert(
       fc.property(
@@ -824,12 +807,7 @@ describe('Preservation 3.9 — extractPlaces Server Functions: identical results
    * For `buildExtractionPrompt`, observe it produces consistent prompts.
    */
   it('property: buildExtractionPrompt produces consistent prompts', async () => {
-    vi.resetModules();
-    vi.doMock('@google/generative-ai', () => ({
-      GoogleGenerativeAI: vi.fn(),
-    }));
-
-    const { buildExtractionPrompt } = await import('@/actions/extractPlaces');
+    const { buildExtractionPrompt } = await import('@/utils/extractPlacesUtils');
 
     fc.assert(
       fc.property(
@@ -861,12 +839,7 @@ describe('Preservation 3.9 — extractPlaces Server Functions: identical results
    * For `detectPlatform`, observe consistent platform detection.
    */
   it('property: detectPlatform returns consistent results', async () => {
-    vi.resetModules();
-    vi.doMock('@google/generative-ai', () => ({
-      GoogleGenerativeAI: vi.fn(),
-    }));
-
-    const { detectPlatform } = await import('@/actions/extractPlaces');
+    const { detectPlatform } = await import('@/utils/extractPlacesUtils');
 
     // Known platform URLs
     const platformUrls = [

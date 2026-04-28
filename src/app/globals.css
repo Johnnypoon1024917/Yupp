@@ -5,11 +5,28 @@
 @import "maplibre-gl/dist/maplibre-gl.css";
 
 :root {
+  /* Legacy aliases (preserved for backwards compatibility) */
   --background: #FAFAFA;
   --surface: #FFFFFF;
   --primary: #000000;
-  --accent: #6366F1;
+  --accent: #FF5A4E;
   --border: #E5E7EB;
+
+  /* Design token palette */
+  --color-brand: #FF5A4E;
+  --color-brand-soft: #FFE4E1;
+  --color-brand-ink: #7A1F18;
+  --color-surface: #FFFFFF;
+  --color-surface-raised: #FAFAFA;
+  --color-surface-sunken: #F4F4F5;
+  --color-ink-1: #0A0A0B;
+  --color-ink-2: #52525B;
+  --color-ink-3: #A1A1AA;
+  --color-border: #E5E7EB;
+  --color-border-strong: #D4D4D8;
+  --color-success: #22C55E;
+  --color-warning: #F59E0B;
+  --color-danger: #EF4444;
 }
 
 body {
@@ -62,4 +79,21 @@ h1, h2, h3, h4, h5, h6 {
 
 .marker-popover .maplibregl-popup-tip {
   border-top-color: var(--surface);
+}
+
+/* Global focus ring for keyboard navigation */
+:focus-visible {
+  outline: 2px solid var(--color-brand);
+  outline-offset: 2px;
+}
+
+/* Hide scrollbar for horizontal scroll strips */
+@layer utilities {
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
 }

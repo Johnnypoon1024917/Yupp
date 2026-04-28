@@ -13,6 +13,9 @@ export interface Pin {
   rating?: number;       // Google rating (1.0–5.0)
   address?: string;      // Human-readable location from geocoder displayName
   user_id?: string;      // Set when persisted to cloud
+  openingHours?: string[];  // Array of day strings, e.g. ["Mon: 9AM-5PM", ...]
+  priceLevel?: number;      // 1-4 scale (Google Places)
+  images?: string[];        // Additional photo URLs for carousel
 }
 
 export interface Collection {

@@ -6,6 +6,15 @@ const nextConfig = {
   experimental: {
     serverComponentsExternalPackages: ['puppeteer-core'],
   },
+  images: {
+    remotePatterns: [
+      { protocol: 'https', hostname: '**.cdninstagram.com' },
+      { protocol: 'https', hostname: '**.xiaohongshu.com' },
+      { protocol: 'https', hostname: '**.douyinpic.com' },
+      { protocol: 'https', hostname: '**.tiktokcdn.com' },
+      { protocol: 'https', hostname: '**.tiktokcdn-us.com' },
+    ],
+  },
 };
 
 export default withPWA({

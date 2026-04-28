@@ -3,7 +3,8 @@
 import puppeteer from 'puppeteer-core';
 import type { Browser, Page } from 'puppeteer-core';
 import type { ScrapeResult, ScrapeError, Platform } from '@/types';
-import { detectPlatform, extractPlacesWithAI } from '@/actions/extractPlaces';
+import { detectPlatform } from '@/utils/extractPlacesUtils';
+import { extractPlacesWithAI } from '@/actions/extractPlaces';
 
 const DESKTOP_USER_AGENT =
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';

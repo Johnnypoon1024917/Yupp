@@ -6,6 +6,7 @@ import useTravelPinStore from '@/store/useTravelPinStore';
 import usePlannerStore from '@/store/usePlannerStore';
 import { useHydrated } from '@/hooks/useHydrated';
 import { createVisualMarkerElement } from '@/components/VisualMarker';
+import { haptics } from '@/utils/haptics';
 import type { Pin } from '@/types';
 
 export interface MapViewRef {
@@ -72,6 +73,7 @@ const MapView = forwardRef<MapViewRef, MapViewProps>(function MapView({ classNam
       pin,
       onClick: (clickedPin) => {
         if (wasDragged) return; // Skip flyTo if this was a drag-and-drop
+        haptics.tap();
         if (map) {
           map.flyTo({
             center: [clickedPin.longitude, clickedPin.latitude],

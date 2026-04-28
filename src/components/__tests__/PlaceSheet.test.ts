@@ -125,7 +125,7 @@ describe('PlaceSheet category pill and image fallback', () => {
     expect(html).toContain('rounded-full');
     expect(html).toContain('px-3');
     expect(html).toContain('py-1');
-    expect(html).toContain('bg-gray-100');
+    expect(html).toContain('bg-surface-sunken');
   });
 
   // Req 4.1 — Image renders when imageUrl is present

@@ -37,7 +37,7 @@ function PlannerContent() {
       {libOpen && (
         <LibraryPane className="max-h-[40vh] border-b border-gray-200 bg-white flex flex-col shrink-0" />
       )}
-      <TripTimeline className="flex-1 overflow-y-auto p-4" />
+      <TripTimeline className="flex-1 overflow-y-auto p-4" onOpenLibrary={() => setLibOpen(true)} />
     </>
   );
 }
@@ -70,7 +70,7 @@ export default function PlannerSidebar({ isOpen, onClose, mapViewRef }: PlannerS
             animate={{ x: 0 }}
             exit={{ x: '100%' }}
             transition={{ duration: 0.3, ease: 'easeInOut' }}
-            className="fixed inset-y-0 right-0 z-[80] max-w-[400px] w-full bg-surface border-l border-border shadow-[-10px_0_40px_rgba(0,0,0,0.1)] flex flex-col"
+            className="fixed inset-y-0 right-0 z-[80] max-w-[400px] w-full bg-surface border-l border-border shadow-elev-3 flex flex-col"
             aria-label="Planner sidebar"
             data-planner-sidebar
             onWheel={(e) => e.stopPropagation()}

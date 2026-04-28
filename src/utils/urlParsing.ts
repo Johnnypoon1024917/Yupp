@@ -1,4 +1,4 @@
-import { detectPlatform } from '@/actions/extractPlaces';
+import { detectPlatform } from '@/utils/extractPlacesUtils';
 
 /**
  * Regex to find HTTP(S) URLs in arbitrary text.

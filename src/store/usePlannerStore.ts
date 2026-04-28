@@ -5,6 +5,7 @@ import type { Pin, Itinerary, PlannedPin } from '@/types';
 export interface PlannerStore {
   // State
   activeItinerary: Itinerary | null;
+  itineraries: Itinerary[];
   dayItems: Record<number, PlannedPin[]>;
   hasUnsavedChanges: boolean;
   isLoadingItinerary: boolean;
@@ -18,6 +19,10 @@ export interface PlannerStore {
   movePinBetweenDays: (sourceDay: number, targetDay: number, pinId: string, targetIndex: number) => void;
   removePinFromDay: (dayNumber: number, pinId: string) => void;
   addDay: () => void;
+
+  // Async actions
+  fetchItineraries: () => Promise<void>;
+  loadItinerary: (itineraryId: string) => Promise<void>;
 }
 
 /** Recalculate sort_order for all pins in an array (index-based: 0, 1, 2, ...). */
@@ -27,6 +32,7 @@ function recalcSortOrder(pins: PlannedPin[]): PlannedPin[] {
 
 const usePlannerStore = create<PlannerStore>()((set) => ({
   activeItinerary: null,
+  itineraries: [],
   dayItems: {},
   hasUnsavedChanges: false,
   isLoadingItinerary: false,
