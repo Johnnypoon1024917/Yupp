@@ -306,6 +306,10 @@ export default function useCloudSync() {
 
       if (event === 'SIGNED_OUT') {
         setUser(null);
+        // Immediately restore an anonymous session so local pins can still be saved
+        supabase.auth.signInAnonymously().then(({ data }) => {
+          if (data.user && isMounted) setUser(data.user);
+        });
       }
     });
 

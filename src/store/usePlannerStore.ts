@@ -1,8 +1,6 @@
 import { create } from 'zustand';
 import { v4 as uuidv4 } from 'uuid';
 import type { Pin, Itinerary, PlannedPin } from '@/types';
-import { createClient } from '@/utils/supabase/client';
-import useToastStore from '@/store/useToastStore';
 
 export interface PlannerStore {
   // State
@@ -10,8 +8,9 @@ export interface PlannerStore {
   dayItems: Record<number, PlannedPin[]>;
   hasUnsavedChanges: boolean;
   isLoadingItinerary: boolean;
-  isSaving: boolean;
-  itineraries: Itinerary[];
+
+  // Hydration action
+  setItineraryData: (itinerary: Itinerary, dayItems: Record<number, PlannedPin[]>) => void;
 
   // Local mutation actions
   addPinToDay: (pin: Pin, dayNumber: number) => void;
@@ -19,15 +18,6 @@ export interface PlannerStore {
   movePinBetweenDays: (sourceDay: number, targetDay: number, pinId: string, targetIndex: number) => void;
   removePinFromDay: (dayNumber: number, pinId: string) => void;
   addDay: () => void;
-
-  // Supabase CRUD actions
-  createItinerary: (name: string, tripDate?: string) => Promise<void>;
-  fetchItineraries: () => Promise<void>;
-  loadItinerary: (itineraryId: string) => Promise<void>;
-  saveItinerary: () => Promise<void>;
-  deleteItinerary: (itineraryId: string) => Promise<void>;
-  renameItinerary: (itineraryId: string, newName: string) => Promise<void>;
-  cloneItinerary: (sourceItineraryId: string) => Promise<string | null>;
 }
 
 /** Recalculate sort_order for all pins in an array (index-based: 0, 1, 2, ...). */
@@ -40,8 +30,10 @@ const usePlannerStore = create<PlannerStore>()((set) => ({
   dayItems: {},
   hasUnsavedChanges: false,
   isLoadingItinerary: false,
-  isSaving: false,
-  itineraries: [],
+
+  setItineraryData: (itinerary, dayItems) => {
+    set({ activeItinerary: itinerary, dayItems, hasUnsavedChanges: false });
+  },
 
   addPinToDay: (pin, dayNumber) => {
     set((state) => {
@@ -63,9 +55,6 @@ const usePlannerStore = create<PlannerStore>()((set) => ({
   },
 
   reorderPinInDay: (dayNumber, oldIndex, newIndex) => {
-    // Capture snapshot before mutation for rollback
-    const snapshot = usePlannerStore.getState().dayItems;
-
     set((state) => {
       const dayPins = [...(state.dayItems[dayNumber] ?? [])];
       if (oldIndex < 0 || oldIndex >= dayPins.length || newIndex < 0 || newIndex >= dayPins.length) {
@@ -81,23 +70,9 @@ const usePlannerStore = create<PlannerStore>()((set) => ({
         hasUnsavedChanges: true,
       };
     });
-
-    // Fire background save
-    set({ isSaving: true });
-    usePlannerStore.getState().saveItinerary()
-      .then(() => {
-        set({ isSaving: false });
-      })
-      .catch(() => {
-        set({ dayItems: snapshot, hasUnsavedChanges: true, isSaving: false });
-        useToastStore.getState().addToast("Sync failed. Reverting changes.", "error");
-      });
   },
 
   movePinBetweenDays: (sourceDay, targetDay, pinId, targetIndex) => {
-    // Capture snapshot before mutation for rollback
-    const snapshot = usePlannerStore.getState().dayItems;
-
     set((state) => {
       const sourcePins = [...(state.dayItems[sourceDay] ?? [])];
       const targetPins = [...(state.dayItems[targetDay] ?? [])];
@@ -118,17 +93,6 @@ const usePlannerStore = create<PlannerStore>()((set) => ({
         hasUnsavedChanges: true,
       };
     });
-
-    // Fire background save
-    set({ isSaving: true });
-    usePlannerStore.getState().saveItinerary()
-      .then(() => {
-        set({ isSaving: false });
-      })
-      .catch(() => {
-        set({ dayItems: snapshot, hasUnsavedChanges: true, isSaving: false });
-        useToastStore.getState().addToast("Sync failed. Reverting changes.", "error");
-      });
   },
 
   removePinFromDay: (dayNumber, pinId) => {
@@ -450,65 +414,12 @@ const usePlannerStore = create<PlannerStore>()((set) => ({
       return null;
     }
 
-    // Clone pins if the source itinerary belongs to a different user
-    const items = sourceItems ?? [];
-    let pinIdMap: Map<string, string> | null = null;
-
-    if (sourceItinerary.user_id !== user.id && items.length > 0) {
-      // Extract unique pin IDs from source items
-      const uniquePinIds = [...new Set(items.map((item) => item.pin_id as string))];
-
-      // Fetch the source pins
-      const { data: sourcePins, error: pinsError } = await supabase
-        .from('pins')
-        .select('*')
-        .in('id', uniquePinIds);
-
-      if (pinsError || !sourcePins) {
-        console.error('[PlannerStore] cloneItinerary: Failed to fetch source pins:', pinsError?.message);
-        return newItinerary.id;
-      }
-
-      // Insert cloned copies with new UUIDs and current user's ID
-      pinIdMap = new Map<string, string>();
-      const clonedPins = sourcePins.map((pin) => {
-        const newPinId = uuidv4();
-        pinIdMap!.set(pin.id, newPinId);
-        return {
-          id: newPinId,
-          user_id: user.id,
-          title: pin.title,
-          description: pin.description ?? null,
-          image_url: pin.image_url,
-          source_url: pin.source_url,
-          latitude: pin.latitude,
-          longitude: pin.longitude,
-          collection_id: pin.collection_id,
-          place_id: pin.place_id ?? null,
-          primary_type: pin.primary_type ?? null,
-          rating: pin.rating ?? null,
-          address: pin.address ?? null,
-        };
-      });
-
-      if (clonedPins.length > 0) {
-        const { error: clonePinsError } = await supabase
-          .from('pins')
-          .insert(clonedPins)
-          .select();
-
-        if (clonePinsError) {
-          console.error('[PlannerStore] cloneItinerary: Failed to clone pins:', clonePinsError.message);
-          return newItinerary.id;
-        }
-      }
-    }
-
     // Batch-insert new itinerary_items preserving day_number and sort_order
+    const items = sourceItems ?? [];
     if (items.length > 0) {
       const rows = items.map((item) => ({
         itinerary_id: newItinerary.id,
-        pin_id: pinIdMap ? (pinIdMap.get(item.pin_id as string) ?? item.pin_id) : item.pin_id,
+        pin_id: item.pin_id,
         day_number: item.day_number,
         sort_order: item.sort_order,
       }));

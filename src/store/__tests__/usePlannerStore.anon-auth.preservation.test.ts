@@ -3,52 +3,56 @@ import fs from 'fs';
 import path from 'path';
 
 /**
- * Preservation Test — Anonymous Auth Bypass Fix in usePlannerStore
+ * Preservation Test — Anonymous Auth Bypass Fix
  * **Validates: Requirements 3.2, 3.3, 3.5, 3.6**
  *
- * Verifies that the fixed auth guards in `createItinerary` and `cloneItinerary`
- * preserve existing behavior for registered users and null users:
+ * After the TanStack Query migration, `createItinerary` and `cloneItinerary`
+ * were moved from usePlannerStore to server actions. The auth guard now lives
+ * in `requireRegisteredUser` (src/actions/auth.ts).
+ *
+ * This test verifies:
  * - The `!user` check is still present (null-user blocking preserved)
  * - The `is_anonymous` check was added (the fix)
- * - The guard uses `||` (OR) to combine both conditions
+ * - Both conditions are enforced via requireRegisteredUser
  */
 describe('usePlannerStore anon-auth preservation', () => {
-  const source = fs.readFileSync(
-    path.resolve(__dirname, '../../store/usePlannerStore.ts'),
+  const authSource = fs.readFileSync(
+    path.resolve(__dirname, '../../actions/auth.ts'),
     'utf-8',
   );
 
-  describe('createItinerary auth guard', () => {
-    const createStart = source.indexOf('createItinerary: async');
-    const createWindow = source.slice(createStart, createStart + 400);
-
+  describe('requireRegisteredUser auth guard', () => {
     it('still includes !user check for null-user blocking', () => {
-      expect(createWindow).toMatch(/!user/);
+      expect(authSource).toMatch(/!user/);
     });
 
     it('includes is_anonymous check (the fix)', () => {
-      expect(createWindow).toMatch(/is_anonymous/);
+      expect(authSource).toMatch(/is_anonymous/);
     });
 
-    it('combines !user and is_anonymous with OR (||)', () => {
-      expect(createWindow).toMatch(/if\s*\(\s*!user\s*\|\|\s*user\.is_anonymous\s*\)/);
+    it('throws for anonymous users', () => {
+      expect(authSource).toMatch(/Anonymous users cannot perform this action/);
     });
   });
 
-  describe('cloneItinerary auth guard', () => {
-    const cloneStart = source.indexOf('cloneItinerary: async');
-    const cloneWindow = source.slice(cloneStart, cloneStart + 500);
+  describe('server actions use requireRegisteredUser', () => {
+    const actionsSource = fs.readFileSync(
+      path.resolve(__dirname, '../../actions/itineraryActions.ts'),
+      'utf-8',
+    );
 
-    it('still includes !user check for null-user blocking', () => {
-      expect(cloneWindow).toMatch(/!user/);
+    it('createItineraryAction calls requireRegisteredUser', () => {
+      const fnStart = actionsSource.indexOf('async function createItineraryAction');
+      expect(fnStart).toBeGreaterThan(-1);
+      const fnWindow = actionsSource.slice(fnStart, fnStart + 300);
+      expect(fnWindow).toContain('requireRegisteredUser');
     });
 
-    it('includes is_anonymous check (the fix)', () => {
-      expect(cloneWindow).toMatch(/is_anonymous/);
-    });
-
-    it('combines !user and is_anonymous with OR (||)', () => {
-      expect(cloneWindow).toMatch(/if\s*\(\s*!user\s*\|\|\s*user\.is_anonymous\s*\)/);
+    it('cloneItineraryAction calls requireRegisteredUser', () => {
+      const fnStart = actionsSource.indexOf('async function cloneItineraryAction');
+      expect(fnStart).toBeGreaterThan(-1);
+      const fnWindow = actionsSource.slice(fnStart, fnStart + 300);
+      expect(fnWindow).toContain('requireRegisteredUser');
     });
   });
 });

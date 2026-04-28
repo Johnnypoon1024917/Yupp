@@ -1,10 +1,9 @@
 import type { Pin } from '@/types';
 
 export function getGoogleMapsPlaceUrl(pin: Pin): string {
-  const baseUrl = 'https://www.google.com/maps/search/?api=1';
   const query = `${pin.latitude},${pin.longitude}`;
   const placeId = pin.placeId ? `&query_place_id=${pin.placeId}` : '';
-  return `${baseUrl}&query=${query}${placeId}`;
+  return `https://www.google.com/maps/search/?api=1&query=${query}${placeId}`;
 }
 
 export function getGoogleMapsDirUrl(pins: Pin[]): string | null {

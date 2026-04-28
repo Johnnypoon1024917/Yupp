@@ -14,6 +14,7 @@ export interface AuthModalProps {
 export default function AuthModal({ open, onOpenChange, message }: AuthModalProps) {
   const user = useTravelPinStore((s) => s.user);
   const setUser = useTravelPinStore((s) => s.setUser);
+  const isRegistered = user && !user.is_anonymous;
 
   const handleSignIn = async () => {
     const supabase = createClient();
@@ -38,7 +39,7 @@ export default function AuthModal({ open, onOpenChange, message }: AuthModalProp
           <Drawer.Title className="sr-only">Account</Drawer.Title>
 
           <div className="px-6 py-6">
-            {user ? (
+            {isRegistered ? (
               <div className="flex flex-col items-center gap-4">
                 {user.user_metadata?.avatar_url ? (
                   /* eslint-disable-next-line @next/next/no-img-element */

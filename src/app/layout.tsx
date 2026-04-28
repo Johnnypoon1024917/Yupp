@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
 import "./globals.css";
 import ToastContainer from "@/components/ToastContainer";
+import QueryProvider from "@/components/QueryProvider";
 
 const geistSans = localFont({
   src: "./fonts/GeistVF.woff",
@@ -38,7 +39,9 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} font-sans antialiased bg-background text-primary`}
       >
-        {children}
+        <QueryProvider>
+          {children}
+        </QueryProvider>
         <ToastContainer />
       </body>
     </html>

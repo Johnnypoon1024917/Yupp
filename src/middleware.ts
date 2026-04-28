@@ -42,6 +42,35 @@ export async function middleware(request: NextRequest) {
     },
   });
 
+  // Admin route guard — check auth + role before allowing access
+  if (request.nextUrl.pathname.startsWith('/admin')) {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      console.log('[admin-guard] No authenticated user — redirecting');
+      return NextResponse.redirect(new URL('/', request.url));
+    }
+    console.log('[admin-guard] Authenticated user:', user.id);
+
+    try {
+      // FIX: Use the standard supabase client loaded with the user's cookies.
+      // Our RLS policy securely allows users to read their own row in 'user_roles'.
+      const { data: userRole, error: roleError } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', user.id)
+        .single();
+
+      if (roleError || !userRole || userRole.role !== 'admin') {
+        console.log('[admin-guard] Unauthorized or not admin — redirecting');
+        return NextResponse.redirect(new URL('/', request.url));
+      }
+      console.log('[admin-guard] Admin access granted');
+    } catch (err) {
+      console.log('[admin-guard] Caught error:', err);
+      return NextResponse.redirect(new URL('/', request.url));
+    }
+  }
+
   // Refresh the auth session — result is intentionally unused.
   // This ensures session tokens stay fresh across navigations.
   await supabase.auth.getUser();

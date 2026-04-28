@@ -134,7 +134,6 @@ describe('Feature: ux-polish-production-grade, Property 1: Synchronous local mut
       activeItinerary: { id: 'itin-1', userId: 'u1', name: 'Test', tripDate: null, createdAt: '' },
       dayItems: {},
       hasUnsavedChanges: false,
-      isSaving: false,
       isLoadingItinerary: false,
     });
   });
@@ -179,28 +178,28 @@ describe('Feature: ux-polish-production-grade, Property 1: Synchronous local mut
 
 
 // ===================================================================
-// Property 2 — Optimistic rollback round-trip
+// Property 2 — Local mutation persistence (post-TanStack Query migration)
 // **Validates: Requirements 2.3, 2.5, 6.3**
+//
+// After the TanStack Query migration, reorderPinInDay is a pure synchronous
+// store mutation. Saves are decoupled and handled by mutation hooks.
+// This property verifies that the mutation persists in the store and sets
+// hasUnsavedChanges to true, so the UI knows to trigger a save.
 // ===================================================================
 
-describe('Feature: ux-polish-production-grade, Property 2: Optimistic rollback round-trip', () => {
+describe('Feature: ux-polish-production-grade, Property 2: Local mutation persistence', () => {
   beforeEach(() => {
     usePlannerStore.setState({
       activeItinerary: { id: 'itin-1', userId: 'u1', name: 'Test', tripDate: null, createdAt: '' },
       dayItems: {},
       hasUnsavedChanges: false,
-      isSaving: false,
       isLoadingItinerary: false,
     });
-    useToastStore.setState({ toasts: [] });
   });
 
-  it('rolling back after saveItinerary failure restores pre-mutation dayItems', async () => {
-    // Make the Supabase mock return an error so saveItinerary throws
-    mockSupabaseError = true;
-
-    await fc.assert(
-      fc.asyncProperty(dayItemsWithReorderableDay, async (dayItems) => {
+  it('reorderPinInDay persists the reorder and sets hasUnsavedChanges', () => {
+    fc.assert(
+      fc.property(dayItemsWithReorderableDay, (dayItems) => {
         const cloned = structuredClone(dayItems);
 
         // Find a reorderable day
@@ -217,27 +216,30 @@ describe('Feature: ux-polish-production-grade, Property 2: Optimistic rollback r
           activeItinerary: { id: 'itin-1', userId: 'u1', name: 'Test', tripDate: null, createdAt: '' },
           dayItems: structuredClone(cloned),
           hasUnsavedChanges: false,
-          isSaving: false,
         });
 
-        const preMutationSnapshot = structuredClone(usePlannerStore.getState().dayItems);
+        const preMutationPins = structuredClone(usePlannerStore.getState().dayItems[dayNumber]);
 
         // Apply mutation
         usePlannerStore.getState().reorderPinInDay(dayNumber, 0, pins.length - 1);
 
-        // Wait for the background save to fail and rollback to occur
-        await new Promise((resolve) => setTimeout(resolve, 10));
+        const postMutationState = usePlannerStore.getState();
+        const postMutationPins = postMutationState.dayItems[dayNumber];
 
-        // After rollback, dayItems should equal the pre-mutation snapshot
-        const rolledBackDayItems = usePlannerStore.getState().dayItems;
-        expect(rolledBackDayItems).toEqual(preMutationSnapshot);
+        // The mutation should persist — pin set is the same but order changed
+        const prePinIds = preMutationPins.map((p: PlannedPin) => p.id);
+        const postPinIds = postMutationPins.map((p: PlannedPin) => p.id);
+        expect(postPinIds.sort()).toEqual(prePinIds.sort());
+
+        // The first pin should have moved to the last position
+        expect(postMutationPins[pins.length - 1].id).toBe(preMutationPins[0].id);
+
+        // hasUnsavedChanges should be true
+        expect(postMutationState.hasUnsavedChanges).toBe(true);
       }),
       { numRuns: 100 },
     );
-
-    // Reset the error flag
-    mockSupabaseError = false;
-  }, 30000);
+  });
 });
 
 
@@ -252,7 +254,6 @@ describe('Feature: ux-polish-production-grade, Property 3: Non-blocking mutation
       activeItinerary: { id: 'itin-1', userId: 'u1', name: 'Test', tripDate: null, createdAt: '' },
       dayItems: {},
       hasUnsavedChanges: false,
-      isSaving: false,
       isLoadingItinerary: false,
     });
   });

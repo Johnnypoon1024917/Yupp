@@ -11,6 +11,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { GripVertical, Map, MapPin } from 'lucide-react';
 import type { PlannedPin } from '@/types';
 import { getGoogleMapsDirUrl } from '@/utils/mapExport';
+import { useDistanceMatrix } from '@/hooks/useDistanceMatrix';
 import BridgeElement from './BridgeElement';
 import PinCardSkeleton from './PinCardSkeleton';
 
@@ -77,6 +78,8 @@ function TimelineCard({ pin }: { pin: PlannedPin }) {
 
 /** Day container: droppable zone wrapping a SortableContext for planned pins. */
 export default function DayContainer({ dayNumber, pins, isLoading }: DayContainerProps) {
+  const { segments, isLoading: isDistanceLoading } = useDistanceMatrix(pins, 'driving');
+
   const { setNodeRef, isOver } = useDroppable({
     id: `day-${dayNumber}`,
     data: { type: 'day-container', dayNumber },
@@ -136,7 +139,7 @@ export default function DayContainer({ dayNumber, pins, isLoading }: DayContaine
                   >
                     <TimelineCard pin={pin} />
                     {index < pins.length - 1 && (
-                      <BridgeElement />
+                      <BridgeElement distance={segments[index]} isLoading={isDistanceLoading} />
                     )}
                   </motion.div>
                 ))}
