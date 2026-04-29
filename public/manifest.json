@@ -2,7 +2,7 @@
   "name": "YUPP Travel",
   "short_name": "YUPP",
   "description": "The AI-Powered Travel Command Center.",
-  "start_url": "/",
+  "start_url": "/app",
   "display": "standalone",
   "background_color": "#FAFAFA",
   "theme_color": "#FAFAFA",
@@ -12,7 +12,7 @@
     { "src": "/icons/icon-512x512.png", "sizes": "512x512", "type": "image/png" }
   ],
   "share_target": {
-    "action": "/share",
+    "action": "/app/share",
     "method": "GET",
     "params": {
       "title": "title",

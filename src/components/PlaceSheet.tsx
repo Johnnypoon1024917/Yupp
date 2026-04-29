@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { Drawer } from "vaul";
 import { Share2, FolderOpen, Check, Plus, Pencil, Utensils, Bed, Camera, ShoppingBag, MapPin, ChevronDown } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
@@ -10,6 +10,8 @@ import { getAffiliateLink } from "@/utils/affiliateLinks";
 import { getCategoryGradient, getCategoryIcon } from "@/utils/categories";
 import { getGoogleMapsPlaceUrl } from "@/utils/mapExport";
 import { trackReferralClick } from "@/actions/trackReferralClick";
+import { trackEvent } from "@/components/AnalyticsProvider";
+import { EVENTS } from "@/utils/analytics";
 import PinImage from "@/components/PinImage";
 import type { Pin } from "@/types";
 
@@ -90,6 +92,16 @@ export default function PlaceSheet({ pin, onDismiss }: PlaceSheetProps) {
 
   const affiliateResult = pin ? getAffiliateLink(pin) : null;
 
+  // Track pin_viewed when a pin is displayed
+  useEffect(() => {
+    if (pin) {
+      trackEvent(EVENTS.PIN_VIEWED, {
+        pin_id: pin.id,
+        source_platform: pin.sourceUrl ? 'unknown' : 'unknown',
+      });
+    }
+  }, [pin?.id]);
+
   const currentCollection = collections.find(
     (c) => c.id === pin?.collectionId
   );
@@ -121,6 +133,10 @@ export default function PlaceSheet({ pin, onDismiss }: PlaceSheetProps) {
 
   const handleShare = useCallback(async () => {
     if (!pin) return;
+    trackEvent(EVENTS.TRIP_SHARED, {
+      itinerary_id: '',
+      share_method: 'share' in navigator ? 'native' : 'clipboard',
+    });
     if (navigator.share) {
       try {
         await navigator.share({
@@ -468,7 +484,7 @@ export default function PlaceSheet({ pin, onDismiss }: PlaceSheetProps) {
                       </span>
                     )}
                     {pin.rating != null && (
-                      <span className="inline-flex items-center gap-[3px] px-[10px] py-[5px] bg-[#FEF9C3] text-[#854D0E] text-micro tracking-[0.4px] rounded-full">
+                      <span className="inline-flex items-center gap-[3px] px-[10px] py-[5px] bg-warning/10 text-warning text-micro tracking-[0.4px] rounded-full">
                         <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                           <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
                         </svg>
@@ -492,7 +508,7 @@ export default function PlaceSheet({ pin, onDismiss }: PlaceSheetProps) {
                     <button
                       type="button"
                       onClick={handleSaveEdit}
-                      className="mt-3 h-[44px] w-full bg-black text-white text-body font-bold rounded-control flex items-center justify-center transition-all active:scale-[0.97] hover:bg-[#222222]"
+                      className="mt-3 h-11 w-full bg-ink-1 text-white text-body font-bold rounded-control flex items-center justify-center transition-all active:scale-[0.97] hover:bg-ink-1/90"
                     >
                       Save Changes
                     </button>
@@ -522,7 +538,7 @@ export default function PlaceSheet({ pin, onDismiss }: PlaceSheetProps) {
                         window.open(affiliateResult.url, '_blank', 'noopener,noreferrer');
                         trackReferralClick({ pinId: pin!.id, platformName: affiliateResult.platformName });
                       }}
-                      className="w-full h-[48px] rounded-control text-body font-bold text-white flex items-center justify-center transition-all active:scale-[0.97]"
+                      className="w-full h-12 rounded-control text-body font-bold text-white flex items-center justify-center transition-all active:scale-[0.97]"
                       style={{ backgroundColor: affiliateResult.bgColor }}
                     >
                       {affiliateResult.label}
@@ -563,7 +579,7 @@ export default function PlaceSheet({ pin, onDismiss }: PlaceSheetProps) {
                 href={pin.sourceUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex-1 h-[48px] bg-black text-white text-body font-bold rounded-pill flex items-center justify-center gap-[8px] transition-all active:scale-[0.97] hover:bg-[#222222]"
+                className="flex-1 h-12 bg-ink-1 text-white text-body font-bold rounded-pill flex items-center justify-center gap-[8px] transition-all active:scale-[0.97] hover:bg-ink-1/90"
               >
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                   <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
@@ -576,7 +592,8 @@ export default function PlaceSheet({ pin, onDismiss }: PlaceSheetProps) {
                 href={getGoogleMapsPlaceUrl(pin)}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex-1 h-[48px] bg-white text-black border border-border text-body font-bold rounded-pill flex items-center justify-center gap-[8px] transition-all active:scale-[0.97] hover:bg-surface-raised"
+                onClick={() => trackEvent(EVENTS.DIRECTIONS_OPENED, { pin_id: pin.id })}
+                className="flex-1 h-12 bg-white text-black border border-border text-body font-bold rounded-pill flex items-center justify-center gap-[8px] transition-all active:scale-[0.97] hover:bg-surface-raised"
               >
                 Open in Google Maps
               </a>

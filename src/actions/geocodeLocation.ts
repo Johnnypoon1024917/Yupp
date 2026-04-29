@@ -5,7 +5,7 @@ import { GeocodeResult } from '@/types';
 import { checkRateLimit } from '@/actions/rateLimit';
 
 const GOOGLE_PLACES_URL = 'https://places.googleapis.com/v1/places:searchText';
-const FIELD_MASK = 'places.location,places.displayName,places.formattedAddress,places.primaryType,places.rating,places.id,places.userRatingCount';
+const FIELD_MASK = 'places.location,places.displayName,places.formattedAddress,places.primaryType,places.rating,places.id,places.userRatingCount,places.regularOpeningHours,places.priceLevel,places.photos';
 const TIMEOUT_MS = 10_000;
 
 interface GooglePlacesResponse {
@@ -17,6 +17,9 @@ interface GooglePlacesResponse {
     primaryType?: string;
     rating?: number;
     userRatingCount?: number;
+    regularOpeningHours?: { weekdayDescriptions?: string[] };
+    priceLevel?: string;
+    photos?: Array<{ name: string; widthPx?: number; heightPx?: number }>;
   }>;
 }
 
@@ -84,8 +87,9 @@ export async function geocodeLocation(input: {
   location: string;
   contextualHints?: string[];
   partialData?: { title: string; imageUrl: string | null };
+  heuristicConfidence?: number;
 }): Promise<GeocodeResult> {
-  const { location, contextualHints, partialData } = input;
+  const { location, contextualHints, partialData, heuristicConfidence } = input;
 
   // Rate limit guard — extract IP from request headers
   const headersList = await headers();
@@ -97,7 +101,7 @@ export async function geocodeLocation(input: {
     return { status: 'error', error: 'Too many requests. Please slow down!' };
   }
 
-  if (process.env.NODE_ENV !== 'production') console.log('[geocodeLocation] Called with:', { location, contextualHints, partialData: !!partialData });
+  if (process.env.NODE_ENV !== 'production') console.log('[geocodeLocation] Called with:', { location, contextualHints, partialData: !!partialData, ...(heuristicConfidence != null && { heuristicConfidence }) });
 
   if (!location || location.trim().length === 0) {
     return { status: 'error', error: 'Location string is empty' };
@@ -152,6 +156,15 @@ export async function geocodeLocation(input: {
     const winner = await pickProminentPlace(places, contextualHints);
 
     if (winner) {
+      // Map Google's string enum to a numeric price level
+      const priceLevelMap: Record<string, number> = {
+        PRICE_LEVEL_FREE: 0,
+        PRICE_LEVEL_INEXPENSIVE: 1,
+        PRICE_LEVEL_MODERATE: 2,
+        PRICE_LEVEL_EXPENSIVE: 3,
+        PRICE_LEVEL_VERY_EXPENSIVE: 4,
+      };
+
       return {
         status: 'success',
         lat: winner.location.latitude,
@@ -162,6 +175,11 @@ export async function geocodeLocation(input: {
           placeId: winner.id,
           primaryType: winner.primaryType,
           rating: winner.rating,
+          openingHours: winner.regularOpeningHours?.weekdayDescriptions,
+          priceLevel: winner.priceLevel ? priceLevelMap[winner.priceLevel] : undefined,
+          photoUrls: winner.photos?.slice(0, 5).map((p) =>
+            `https://places.googleapis.com/v1/${p.name}/media?maxWidthPx=400&key=${apiKey}`
+          ),
         },
       };
     }

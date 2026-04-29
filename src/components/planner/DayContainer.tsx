@@ -17,6 +17,7 @@ import { useDistanceMatrix } from '@/hooks/useDistanceMatrix';
 import { useWeather } from '@/hooks/useWeather';
 import { getDominantCity } from '@/utils/address';
 import { haptics } from '@/utils/haptics';
+import usePlannerStore from '@/store/usePlannerStore';
 import BridgeElement from './BridgeElement';
 import PinCardSkeleton from './PinCardSkeleton';
 
@@ -152,14 +153,16 @@ export default function DayContainer({ dayNumber, pins, isLoading, tripDate }: D
 
   // Inline rename state
   const [isRenaming, setIsRenaming] = useState(false);
-  const [customLabel, setCustomLabel] = useState('');
+  const dayLabels = usePlannerStore((s) => s.dayLabels);
+  const setDayLabel = usePlannerStore((s) => s.setDayLabel);
+  const customLabel = dayLabels[dayNumber] ?? '';
   const inputRef = useRef<HTMLInputElement>(null);
 
   const handleStartRename = useCallback(() => {
-    setCustomLabel(`Day ${dayNumber}`);
+    setDayLabel(dayNumber, customLabel || `Day ${dayNumber}`);
     setIsRenaming(true);
     setTimeout(() => inputRef.current?.focus(), 0);
-  }, [dayNumber]);
+  }, [dayNumber, customLabel, setDayLabel]);
 
   const handleSaveRename = useCallback(() => {
     setIsRenaming(false);
@@ -197,7 +200,7 @@ export default function DayContainer({ dayNumber, pins, isLoading, tripDate }: D
               <input
                 ref={inputRef}
                 value={customLabel}
-                onChange={(e) => setCustomLabel(e.target.value)}
+                onChange={(e) => setDayLabel(dayNumber, e.target.value)}
                 onBlur={handleSaveRename}
                 onKeyDown={handleRenameKeyDown}
                 className="text-title text-ink-1 bg-transparent border-b-2 border-brand outline-none min-w-0 max-w-[160px]"

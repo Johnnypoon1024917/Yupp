@@ -5,7 +5,9 @@ import type { ExtractedPlace } from '@/types';
 import {
   buildExtractionPrompt,
   parseLLMResponse,
-  extractPlaceNameFromCaption,
+  extractPlaceFromCaption,
+  CONFIDENCE_HIGH,
+  CONFIDENCE_MEDIUM,
 } from '@/utils/extractPlacesUtils';
 
 /**
@@ -76,11 +78,11 @@ async function callGemini(prompt: string): Promise<string | null> {
   if (!apiKey) return null;
 
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 10_000);
+  const timeout = setTimeout(() => controller.abort(), 25_000);
 
   try {
     const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
     const result = await model.generateContent(prompt, { signal: controller.signal });
     const response = result.response;
     const text = response.text();
@@ -105,14 +107,18 @@ export async function extractPlacesWithAI(
     const customResult = await callCustomLLM(prompt);
     if (customResult === null) { customSkipped = true; }
     else { const parsed = parseLLMResponse(customResult); if (parsed.length > 0) return parsed; }
-  } catch { /* fall through */ }
+  }  catch (err) {
+  console.error('[extractPlaces] LLM failed:', err instanceof Error ? err.message : err);
+}
 
   let geminiSkipped = false;
   try {
     const geminiResult = await callGemini(prompt);
     if (geminiResult === null) { geminiSkipped = true; }
     else { const parsed = parseLLMResponse(geminiResult); if (parsed.length > 0) return parsed; }
-  } catch { /* fall through */ }
+  } catch (err) {
+  console.error('[extractPlaces] Gemini failed:', err instanceof Error ? err.message : err);
+}
 
   let deepSeekSkipped = false;
   try {
@@ -127,7 +133,31 @@ export async function extractPlacesWithAI(
     console.warn('extractPlacesWithAI: all three AI providers failed — falling back to caption heuristics');
   }
 
-  const captionName = extractPlaceNameFromCaption(caption);
-  const fallbackName = captionName ?? ogTitle;
-  return [{ name: fallbackName, contextualHints: [] }];
+  const heuristicResult = extractPlaceFromCaption(caption, ogTitle);
+
+  // Structured logging for heuristic invocation
+  console.log('[heuristic]', {
+    pattern: heuristicResult?.pattern ?? 'none',
+    confidence: heuristicResult?.confidence ?? 0,
+    captionLength: caption.length,
+    hasOgTitle: !!ogTitle,
+  });
+
+  // Confidence gate: low (< 0.4) or null → loud failure (empty array)
+  if (!heuristicResult || heuristicResult.confidence < CONFIDENCE_MEDIUM) {
+    return [];
+  }
+
+  // Build contextualHints from address and districtHint
+  const contextualHints: string[] = [];
+  if (heuristicResult.address) contextualHints.push(heuristicResult.address);
+  if (heuristicResult.districtHint) contextualHints.push(heuristicResult.districtHint);
+
+  return [{
+    name: heuristicResult.name,
+    contextualHints,
+    _heuristicConfidence: heuristicResult.confidence,
+    _heuristicPattern: heuristicResult.pattern,
+    _needsReview: heuristicResult.confidence < CONFIDENCE_HIGH,
+  }];
 }

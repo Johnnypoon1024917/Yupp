@@ -1,5 +1,7 @@
 import { create } from 'zustand';
 import { v4 as uuidv4 } from 'uuid';
+import { trackEvent } from '@/components/AnalyticsProvider';
+import { EVENTS } from '@/utils/analytics';
 import type { Pin, Itinerary, PlannedPin } from '@/types';
 
 export interface PlannerStore {
@@ -7,6 +9,7 @@ export interface PlannerStore {
   activeItinerary: Itinerary | null;
   itineraries: Itinerary[];
   dayItems: Record<number, PlannedPin[]>;
+  dayLabels: Record<number, string>;
   hasUnsavedChanges: boolean;
   isLoadingItinerary: boolean;
 
@@ -19,6 +22,7 @@ export interface PlannerStore {
   movePinBetweenDays: (sourceDay: number, targetDay: number, pinId: string, targetIndex: number) => void;
   removePinFromDay: (dayNumber: number, pinId: string) => void;
   addDay: () => void;
+  setDayLabel: (dayNumber: number, label: string) => void;
 
   // Async actions
   fetchItineraries: () => Promise<void>;
@@ -34,6 +38,7 @@ const usePlannerStore = create<PlannerStore>()((set) => ({
   activeItinerary: null,
   itineraries: [],
   dayItems: {},
+  dayLabels: {},
   hasUnsavedChanges: false,
   isLoadingItinerary: false,
 
@@ -57,6 +62,11 @@ const usePlannerStore = create<PlannerStore>()((set) => ({
         },
         hasUnsavedChanges: true,
       };
+    });
+    trackEvent(EVENTS.PIN_PLANNED, {
+      itinerary_id: usePlannerStore.getState().activeItinerary?.id || '',
+      pin_id: pin.id,
+      day_number: dayNumber,
     });
   },
 
@@ -127,6 +137,15 @@ const usePlannerStore = create<PlannerStore>()((set) => ({
     });
   },
 
+  setDayLabel: (dayNumber, label) => {
+    set((state) => ({
+      dayLabels: {
+        ...state.dayLabels,
+        [dayNumber]: label,
+      },
+    }));
+  },
+
   createItinerary: async (name, tripDate) => {
     const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();
@@ -164,6 +183,7 @@ const usePlannerStore = create<PlannerStore>()((set) => ({
       dayItems: { 1: [] },
       hasUnsavedChanges: false,
     }));
+    trackEvent(EVENTS.ITINERARY_CREATED, { itinerary_id: itinerary.id });
   },
 
   fetchItineraries: async () => {

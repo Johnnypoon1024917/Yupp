@@ -118,7 +118,7 @@ const FRIENDLY_MESSAGES = [
   "We couldn't read that link. Try pasting a different one.",
   "Our AI is currently taking a coffee break. We saved the link to your unorganized collection instead!",
   "Something went wrong. Please try again in a moment.",
-  "No places found in this post.",
+  "We couldn't identify a place in this post. Try pasting the place name directly.",
   "Please enter a valid URL (e.g. https://example.com)",
 ];
 

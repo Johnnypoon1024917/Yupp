@@ -3,6 +3,8 @@
 import { useEffect } from 'react';
 import { createClient } from '@/utils/supabase/client';
 import useTravelPinStore from '@/store/useTravelPinStore';
+import { trackEvent } from '@/components/AnalyticsProvider';
+import { EVENTS } from '@/utils/analytics';
 import type { Pin, Collection } from '@/types';
 
 // ---------------------------------------------------------------------------
@@ -292,6 +294,10 @@ export default function useCloudSync() {
 
       if ((event === 'SIGNED_IN' || event === 'USER_UPDATED') && session?.user) {
         setUser(session.user);
+
+        if (event === 'SIGNED_IN') {
+          trackEvent(EVENTS.USER_SIGNED_UP, { auth_method: 'google' });
+        }
 
         try {
           const { syncedPins } = await pushLocalDataAndHydrate(supabase, session.user.id);

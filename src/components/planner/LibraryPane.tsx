@@ -85,10 +85,10 @@ export default function LibraryPane({ className }: LibraryPaneProps) {
             key={mode}
             type="button"
             onClick={() => setGroupMode(mode)}
-            className={`flex-1 py-1.5 text-[12px] font-medium rounded-md transition-colors ${
+            className={`flex-1 py-1.5 text-micro font-medium rounded-md transition-colors ${
               groupMode === mode
                 ? 'bg-accent text-white'
-                : 'bg-[#F0F0F0] text-neutral-500 hover:bg-[#E5E5E5]'
+                : 'bg-surface-sunken text-ink-2 hover:bg-border'
             }`}
           >
             {mode === 'city' ? 'City' : 'Country'}
@@ -97,15 +97,15 @@ export default function LibraryPane({ className }: LibraryPaneProps) {
       </div>
 
       {/* Search input */}
-      <div className="px-4 pb-4 border-b border-gray-200">
+      <div className="px-4 pb-4 border-b border-border">
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-ink-3" />
           <input
             type="text"
             placeholder="Search by title or city..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-9 pr-3 py-2 text-[13px] rounded-lg bg-[#FAFAFA] border border-gray-200 focus:outline-none focus:ring-2 focus:ring-accent/40 placeholder:text-neutral-400"
+            className="w-full pl-9 pr-3 py-2 text-caption rounded-lg bg-surface-raised border border-border focus:outline-none focus:ring-2 focus:ring-accent/40 placeholder:text-ink-3"
           />
         </div>
       </div>
@@ -120,7 +120,7 @@ export default function LibraryPane({ className }: LibraryPaneProps) {
         )}
 
         {cityNames.length === 0 && pins.length > 0 && (
-          <p className="text-[13px] text-neutral-400 text-center py-8">
+          <p className="text-caption text-ink-3 text-center py-8">
             No pins match your search
           </p>
         )}
@@ -129,10 +129,10 @@ export default function LibraryPane({ className }: LibraryPaneProps) {
           <div key={city}>
             <div className="flex items-center gap-1.5 mb-2">
               <MapPin className="w-3.5 h-3.5 text-accent" />
-              <h3 className="text-[11px] font-semibold text-neutral-500 uppercase tracking-wider">
+              <h3 className="text-micro font-semibold text-ink-2 uppercase tracking-wider">
                 {city}
               </h3>
-              <span className="text-[11px] text-neutral-400">
+              <span className="text-micro text-ink-3">
                 ({filteredGroups[city].length})
               </span>
             </div>
@@ -160,12 +160,12 @@ function DraggablePinCard({ pin }: { pin: Pin }) {
       ref={setNodeRef}
       {...attributes}
       {...listeners}
-      className={`group rounded-card bg-white border border-gray-200 overflow-hidden shadow-sm hover:shadow-md transition-shadow cursor-grab active:cursor-grabbing ${
+      className={`group rounded-card bg-surface border border-border overflow-hidden shadow-sm hover:shadow-md transition-shadow cursor-grab active:cursor-grabbing ${
         isDragging ? 'opacity-40 scale-95' : ''
       }`}
     >
       {/* 4:5 aspect-ratio image */}
-      <div className="relative aspect-[4/5] bg-neutral-100">
+      <div className="relative aspect-[4/5] bg-surface-sunken">
         {pin.imageUrl ? (
           <img
             src={pin.imageUrl}
@@ -174,7 +174,7 @@ function DraggablePinCard({ pin }: { pin: Pin }) {
             draggable={false}
           />
         ) : (
-          <div className="w-full h-full flex items-center justify-center text-neutral-300">
+          <div className="w-full h-full flex items-center justify-center text-ink-3">
             <MapPin className="w-8 h-8" />
           </div>
         )}
@@ -182,10 +182,10 @@ function DraggablePinCard({ pin }: { pin: Pin }) {
 
       {/* Title + drag affordance */}
       <div className="flex items-center gap-1 p-2">
-        <p className="flex-1 text-[13px] font-bold tracking-tight text-[#111111] truncate">
+        <p className="flex-1 text-caption font-bold tracking-tight text-ink-1 truncate">
           {pin.title}
         </p>
-        <div className="flex items-center text-neutral-400 group-hover:text-accent transition-colors shrink-0">
+        <div className="flex items-center text-ink-3 group-hover:text-accent transition-colors shrink-0">
           <GripVertical className="w-3.5 h-3.5" />
         </div>
       </div>

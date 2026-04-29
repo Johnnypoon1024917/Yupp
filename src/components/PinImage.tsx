@@ -14,6 +14,26 @@ export interface PinImageProps {
   sizes?: string;
 }
 
+const WHITELISTED_PATTERNS = [
+  'cdninstagram.com',
+  'xiaohongshu.com',
+  'douyinpic.com',
+  'tiktokcdn.com',
+  'tiktokcdn-us.com',
+  'googleapis.com',
+  'supabase.co',
+];
+
+/** Checks if a URL's hostname matches any whitelisted pattern from next.config.mjs */
+function isWhitelistedHost(url: string): boolean {
+  try {
+    const { hostname } = new URL(url);
+    return WHITELISTED_PATTERNS.some((pattern) => hostname.endsWith(pattern));
+  } catch {
+    return false;
+  }
+}
+
 /** Simple string hash → hue for deterministic gradient placeholders. */
 function hashCode(str: string): number {
   let hash = 0;
@@ -69,13 +89,29 @@ export default function PinImage({
       )}
 
       {/* Actual image — fades in on load */}
-      {!errored && (
+      {!errored && isWhitelistedHost(src) && (
         <Image
           src={src}
           alt={alt}
           fill
           sizes={sizes ?? '(max-width: 768px) 50vw, 33vw'}
           className="object-cover"
+          style={{
+            opacity: loaded ? 1 : 0,
+            transition: `opacity ${DURATION_BASE}s ease`,
+          }}
+          onLoad={handleLoad}
+          onError={handleError}
+        />
+      )}
+
+      {/* Fallback <img> for non-whitelisted hosts */}
+      {!errored && !isWhitelistedHost(src) && (
+        /* eslint-disable-next-line @next/next/no-img-element */
+        <img
+          src={src}
+          alt={alt}
+          className="absolute inset-0 w-full h-full object-cover"
           style={{
             opacity: loaded ? 1 : 0,
             transition: `opacity ${DURATION_BASE}s ease`,

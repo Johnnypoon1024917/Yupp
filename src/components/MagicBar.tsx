@@ -11,6 +11,8 @@ import useToastStore from '@/store/useToastStore';
 import { DEMO_URLS } from './MagicBar.demoUrls';
 import { DURATION_BASE, EASE_SPRING } from '@/utils/motion';
 import { haptics } from '@/utils/haptics';
+import { trackEvent } from '@/components/AnalyticsProvider';
+import { EVENTS } from '@/utils/analytics';
 import type { Pin } from '@/types';
 
 export type MagicBarState = 'idle' | 'processing' | 'error' | 'success';
@@ -118,7 +120,7 @@ const MagicBar = forwardRef<MagicBarRef, MagicBarProps>(function MagicBar({ onPi
 
         // Step 2: Check for extracted places
         if (scrapeResult.extractedPlaces.length === 0) {
-          addToast("No places found in this post.", "error");
+          addToast("We couldn't identify a place in this post. Try pasting the place name directly.", "error");
           haptics.error();
           setTimeout(() => { resetToIdle(); }, 300);
           return;
@@ -159,8 +161,22 @@ const MagicBar = forwardRef<MagicBarRef, MagicBarProps>(function MagicBar({ onPi
             placeId: geocodeResult.enrichedData.placeId,
             primaryType: geocodeResult.enrichedData.primaryType,
             rating: geocodeResult.enrichedData.rating,
+            openingHours: geocodeResult.enrichedData.openingHours,
+            priceLevel: geocodeResult.enrichedData.priceLevel,
+            images: geocodeResult.enrichedData.photoUrls,
+            ...(place._needsReview != null && { needsReview: place._needsReview }),
           });
           onPinCreated?.(newPin);
+          trackEvent(EVENTS.PIN_CREATED, {
+            source_platform: scrapeResult.platform || 'unknown',
+            pin_id: newPin.id,
+            pin_count: useTravelPinStore.getState().pins.length,
+            ...(place._heuristicPattern != null && {
+              extraction_source: 'heuristic' as const,
+              heuristic_pattern: place._heuristicPattern,
+              heuristic_confidence: place._heuristicConfidence,
+            }),
+          });
           if (!scrapeResult.imageUrl) {
             usedPlaceholder = true;
           }
@@ -329,7 +345,7 @@ const MagicBar = forwardRef<MagicBarRef, MagicBarProps>(function MagicBar({ onPi
                 className="absolute inset-0"
                 style={{
                   background:
-                    'linear-gradient(90deg, transparent 0%, rgba(99,102,241,0.08) 50%, transparent 100%)',
+                    'linear-gradient(90deg, transparent 0%, rgba(255,90,78,0.08) 50%, transparent 100%)',
                 }}
                 animate={{ x: ['-100%', '100%'] }}
                 transition={{ duration: 1.5, repeat: Infinity, ease: 'easeInOut' }}

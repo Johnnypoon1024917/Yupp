@@ -1,3 +1,21 @@
+/** Identifies which detection pattern matched in the heuristic extractor. */
+export type PatternId =
+  | 'cjk_address_block'
+  | 'place_emoji_pin'
+  | 'mention_with_hashtags'
+  | 'standalone_address'
+  | 'english_title_separator'
+  | 'first_line_short';
+
+/** Structured result from the heuristic extractor. */
+export interface HeuristicResult {
+  name: string;
+  address: string | null;
+  districtHint: string | null;
+  confidence: number; // [0.1, 1.0]
+  pattern: PatternId;
+}
+
 export interface Pin {
   id: string;            // UUID v4
   title: string;         // Clean place/venue name
@@ -16,6 +34,7 @@ export interface Pin {
   openingHours?: string[];  // Array of day strings, e.g. ["Mon: 9AM-5PM", ...]
   priceLevel?: number;      // 1-4 scale (Google Places)
   images?: string[];        // Additional photo URLs for carousel
+  needsReview?: boolean;    // Flags medium-confidence heuristic pins
 }
 
 export interface Collection {
@@ -29,6 +48,9 @@ export interface Collection {
 export interface ExtractedPlace {
   name: string;
   contextualHints: string[];
+  _heuristicConfidence?: number;
+  _heuristicPattern?: PatternId;
+  _needsReview?: boolean;
 }
 
 export type Platform = 'instagram' | 'douyin' | 'xiaohongshu' | 'unknown';
@@ -46,12 +68,16 @@ export interface ScrapeResult {
 export interface ScrapeError {
   success: false;
   error: string;
+  errorCode?: 'no_places_found' | 'network_error' | 'scrape_error';
 }
 
 export interface EnrichedData {
   placeId: string;
   primaryType?: string;
   rating?: number;
+  openingHours?: string[];
+  priceLevel?: number;
+  photoUrls?: string[];
 }
 
 export type GeocodeResult =

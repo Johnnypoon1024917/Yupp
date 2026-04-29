@@ -25,17 +25,17 @@ function PlannerContent() {
       {/* Collapsible saved-pins library (drag source) */}
       <button
         onClick={() => setLibOpen((v) => !v)}
-        className="flex items-center justify-between w-full px-4 py-2.5 bg-white border-b border-gray-200 text-[13px] font-bold tracking-tight text-[#111111]"
+        className="flex items-center justify-between w-full px-4 py-2.5 bg-surface border-b border-border text-caption font-bold tracking-tight text-ink-1"
       >
         <span>Saved Library</span>
         {libOpen ? (
-          <ChevronUp className="w-4 h-4 text-neutral-400" />
+          <ChevronUp className="w-4 h-4 text-ink-3" />
         ) : (
-          <ChevronDown className="w-4 h-4 text-neutral-400" />
+          <ChevronDown className="w-4 h-4 text-ink-3" />
         )}
       </button>
       {libOpen && (
-        <LibraryPane className="max-h-[40vh] border-b border-gray-200 bg-white flex flex-col shrink-0" />
+        <LibraryPane className="max-h-[40vh] border-b border-border bg-surface flex flex-col shrink-0" />
       )}
       <TripTimeline className="flex-1 overflow-y-auto p-4" onOpenLibrary={() => setLibOpen(true)} />
     </>

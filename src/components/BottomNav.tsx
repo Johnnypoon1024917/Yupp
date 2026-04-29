@@ -1,8 +1,9 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { CalendarDays, Compass, PlusCircle, User } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { getReducedMotion, DURATION_FAST, EASE_OUT, reducedTransition } from "@/utils/motion";
+import { DURATION_FAST, EASE_OUT, reducedTransition } from "@/utils/motion";
 
 export interface BottomNavProps {
   activeTab: "discover" | "add" | "plan" | "profile";
@@ -17,7 +18,15 @@ const tabs = [
 ];
 
 export default function BottomNav({ activeTab, onTabChange }: BottomNavProps) {
-  const reduced = typeof window !== "undefined" ? getReducedMotion() : false;
+  const [reduced, setReduced] = useState(false);
+
+  useEffect(() => {
+    const mql = window.matchMedia('(prefers-reduced-motion: reduce)');
+    setReduced(mql.matches);
+    const handler = (e: MediaQueryListEvent) => setReduced(e.matches);
+    mql.addEventListener('change', handler);
+    return () => mql.removeEventListener('change', handler);
+  }, []);
 
   return (
     <nav

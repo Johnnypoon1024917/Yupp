@@ -46,6 +46,8 @@ export default function AppLayout() {
 
   const itineraries = usePlannerStore((s) => s.itineraries);
   const loadItinerary = usePlannerStore((s) => s.loadItinerary);
+  const dayItems = usePlannerStore((s) => s.dayItems);
+  const activeItinerary = usePlannerStore((s) => s.activeItinerary);
 
   const activePin = pins.find((p) => p.id === activePinId) ?? null;
 
@@ -174,7 +176,7 @@ export default function AppLayout() {
   }, []);
 
   return (
-    <div className="relative w-screen h-screen h-[100dvh] overflow-hidden overscroll-none bg-[#FAFAFA]">
+    <div className="relative w-screen h-screen h-[100dvh] overflow-hidden overscroll-none bg-surface-raised">
       <DndContext
         sensors={sensors}
         collisionDetection={rectIntersection}
@@ -207,16 +209,46 @@ export default function AppLayout() {
               <div className="pointer-events-auto">
                 <h2 className="px-4 pb-1 text-caption text-ink-2">My Trips</h2>
                 <div className="flex gap-3 overflow-x-auto px-4 pb-2 scrollbar-hide">
-                  {itineraries.map((itinerary) => (
+                  {itineraries.map((itinerary) => {
+                    // Get first 4 pin images from the active itinerary's day items
+                    const tripImages: string[] = [];
+                    if (activeItinerary?.id === itinerary.id && dayItems) {
+                      for (const dayPins of Object.values(dayItems)) {
+                        for (const pin of dayPins) {
+                          if (pin.imageUrl && pin.imageUrl !== '/placeholder-pin.svg') {
+                            tripImages.push(pin.imageUrl);
+                          }
+                          if (tripImages.length >= 4) break;
+                        }
+                        if (tripImages.length >= 4) break;
+                      }
+                    }
+
+                    return (
                     <button
                       key={itinerary.id}
                       onClick={() => handleTripCardTap(itinerary.id)}
                       className="flex-shrink-0 w-40 rounded-card bg-surface shadow-elev-1 overflow-hidden text-left transition-shadow hover:shadow-elev-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand focus-visible:outline-offset-2"
                       aria-label={`Open trip ${itinerary.name}`}
                     >
-                      <div className="h-20 bg-surface-sunken flex items-center justify-center">
-                        <span className="text-ink-3 text-micro uppercase tracking-wider">Trip</span>
-                      </div>
+                      {tripImages.length > 0 ? (
+                        <div className="h-20 grid grid-cols-2 grid-rows-2 gap-px bg-border overflow-hidden">
+                          {tripImages.slice(0, 4).map((img, i) => (
+                            <div key={i} className="bg-surface-sunken overflow-hidden">
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img src={img} alt="" className="w-full h-full object-cover" />
+                            </div>
+                          ))}
+                          {/* Fill remaining cells if fewer than 4 images */}
+                          {Array.from({ length: Math.max(0, 4 - tripImages.length) }).map((_, i) => (
+                            <div key={`empty-${i}`} className="bg-surface-sunken" />
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="h-20 bg-surface-sunken flex items-center justify-center">
+                          <span className="text-ink-3 text-micro uppercase tracking-wider">Trip</span>
+                        </div>
+                      )}
                       <div className="p-2">
                         <p className="text-caption text-ink-1 truncate font-semibold">{itinerary.name}</p>
                         {itinerary.tripDate && (
@@ -230,7 +262,8 @@ export default function AppLayout() {
                         )}
                       </div>
                     </button>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             )}

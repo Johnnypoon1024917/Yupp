@@ -13,6 +13,8 @@ const nextConfig = {
       { protocol: 'https', hostname: '**.douyinpic.com' },
       { protocol: 'https', hostname: '**.tiktokcdn.com' },
       { protocol: 'https', hostname: '**.tiktokcdn-us.com' },
+      { protocol: 'https', hostname: '**.googleapis.com' },
+      { protocol: 'https', hostname: '**.supabase.co' },
     ],
   },
 };

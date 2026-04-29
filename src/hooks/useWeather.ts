@@ -9,6 +9,10 @@ export interface WeatherData {
   icon: string;
 }
 
+/** Module-level cache for weather data (30-minute TTL). */
+const weatherCache = new Map<string, { data: WeatherData; timestamp: number }>();
+const CACHE_TTL_MS = 30 * 60 * 1000; // 30 minutes
+
 /**
  * Maps WMO weather codes to emoji icons.
  * @see https://open-meteo.com/en/docs#weathervariables
@@ -60,6 +64,15 @@ export function useWeather(
       return;
     }
 
+    // Check cache first
+    const cacheKey = `${Math.round(lat * 10) / 10}_${Math.round(lng * 10) / 10}_${targetDate}`;
+    const cached = weatherCache.get(cacheKey);
+    if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
+      setData(cached.data);
+      setIsLoading(false);
+      return;
+    }
+
     const controller = new AbortController();
     setIsLoading(true);
 
@@ -87,12 +100,14 @@ export function useWeather(
           setData(null);
         } else {
           const code = json.daily.weather_code[dayIndex];
-          setData({
+          const weatherData: WeatherData = {
             tempHigh: json.daily.temperature_2m_max[dayIndex],
             tempLow: json.daily.temperature_2m_min[dayIndex],
             weatherCode: code,
             icon: weatherCodeToIcon(code),
-          });
+          };
+          weatherCache.set(cacheKey, { data: weatherData, timestamp: Date.now() });
+          setData(weatherData);
         }
         setIsLoading(false);
       })
